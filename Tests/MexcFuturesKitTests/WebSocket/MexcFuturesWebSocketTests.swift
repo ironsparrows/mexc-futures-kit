@@ -4,7 +4,7 @@ import Testing
 
 @Suite("MexcFuturesWebSocket")
 struct MexcFuturesWebSocketTests {
-    let socket = MexcFuturesWebSocket(configuration: .init(apiKey: "api-key", secretKey: "secret-key"))
+    let socket = MexcFuturesWebSocket()
 
     @Test func startsDisconnected() async {
         #expect(await socket.isConnected == false)
@@ -13,7 +13,7 @@ struct MexcFuturesWebSocketTests {
 
     @Test func loginRequiresConnection() async {
         let error = await #expect(throws: MexcFuturesError.self) {
-            try await socket.login()
+            try await socket.login(apiKey: "api-key", secretKey: "secret-key")
         }
 
         guard case .notConnected = error else {

@@ -50,6 +50,8 @@ MexcFuturesKit uses the `master` branch of SwiftyJSON, because only that branch 
 
 ### WebSocket: API keys
 
+Only private account data needs API keys. Market data streams need none.
+
 1. Open MEXC API Management.
 2. Create an API key and a secret key.
 3. Enable futures trading permissions.
@@ -131,12 +133,26 @@ Before signing, the client validates the order. An invalid order throws `MexcFut
 
 ## WebSocket client
 
+Market data needs no credentials:
+
 ```swift
-let socket = MexcFuturesWebSocket(configuration: .init(apiKey: "...", secretKey: "..."))
+let socket = MexcFuturesWebSocket()
 let events = socket.events()
 
 try await socket.connect()
-try await socket.login(subscribe: false)
+try await socket.subscribeToTicker(symbol: "BTC_USDT")
+
+for await event in events {
+    if case .ticker(let ticker) = event {
+        print("BTC price:", ticker["lastPrice"].doubleValue)
+    }
+}
+```
+
+Private account data needs a login with an API key and secret key:
+
+```swift
+try await socket.login(apiKey: "...", secretKey: "...", subscribe: false)
 
 for await event in events {
     switch event {
@@ -159,6 +175,8 @@ for await event in events {
     }
 }
 ```
+
+The socket does not keep credentials. After a reconnect, call `login(apiKey:secretKey:subscribe:)` again to resume private data.
 
 Each call to `events()` returns a new stream, and every stream receives every event.
 
@@ -183,7 +201,7 @@ Each subscription has a matching `unsubscribeFrom…` method.
 | Event | Meaning |
 | --- | --- |
 | `connected`, `disconnected(code:)` | The connection opened or closed |
-| `login`, `loginFailed` | The result of `login(subscribe:)` |
+| `login`, `loginFailed` | The result of `login(apiKey:secretKey:subscribe:)` |
 | `filterSet`, `filterFailed` | The result of `setPersonalFilter(_:)` |
 | `subscribed(channel:data:)`, `unsubscribed(channel:data:)` | The server confirmed a subscription change |
 | `pong` | The server answered a keep-alive ping |

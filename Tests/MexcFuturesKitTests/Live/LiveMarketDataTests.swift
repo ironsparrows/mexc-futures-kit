@@ -20,7 +20,7 @@ struct LiveMarketDataTests {
 
     @Test(.timeLimit(.minutes(1)))
     func webSocketStreamsTicker() async throws {
-        let socket = MexcFuturesWebSocket(configuration: .init(apiKey: "", secretKey: "", autoReconnect: false))
+        let socket = MexcFuturesWebSocket(configuration: .init(autoReconnect: false))
         let events = socket.events()
         try await socket.connect()
         try await socket.subscribeToTicker(symbol: "BTC_USDT")
@@ -44,7 +44,7 @@ struct LiveMarketDataTests {
 
     @Test(.timeLimit(.minutes(1)))
     func webSocketAnswersPing() async throws {
-        let socket = MexcFuturesWebSocket(configuration: .init(apiKey: "", secretKey: "", autoReconnect: false, pingInterval: .seconds(1)))
+        let socket = MexcFuturesWebSocket(configuration: .init(autoReconnect: false, pingInterval: .seconds(1)))
         let events = socket.events()
         try await socket.connect()
 
@@ -59,7 +59,7 @@ struct LiveMarketDataTests {
 
     @Test(.timeLimit(.minutes(1)))
     func disconnectDeliversDisconnected() async throws {
-        let socket = MexcFuturesWebSocket(configuration: .init(apiKey: "", secretKey: "", autoReconnect: true))
+        let socket = MexcFuturesWebSocket()
         let events = socket.events()
         try await socket.connect()
 

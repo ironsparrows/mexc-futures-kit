@@ -2,21 +2,25 @@ import Foundation
 import SwiftyJSON
 
 extension MexcFuturesWebSocket {
-    /// Logs in with the configured API key to receive private data.
+    /// Logs in to receive private data.
     ///
-    /// The ``Event/login(_:)`` event confirms the login, after which ``isLoggedIn`` is `true`.
+    /// Market data needs no login. The ``Event/login(_:)`` event confirms the login,
+    /// after which ``isLoggedIn`` is `true`.
     ///
-    /// - Parameter subscribe: Whether the server pushes every kind of private data after login.
-    ///   Pass `false` to choose the data with ``setPersonalFilter(_:)``.
-    public func login(subscribe: Bool = true) async throws(MexcFuturesError) {
+    /// - Parameters:
+    ///   - apiKey: The API key created in MEXC API management.
+    ///   - secretKey: The secret key paired with `apiKey`, used to sign the login.
+    ///   - subscribe: Whether the server pushes every kind of private data after login.
+    ///     Pass `false` to choose the data with ``setPersonalFilter(_:)``.
+    public func login(apiKey: String, secretKey: String, subscribe: Bool = true) async throws(MexcFuturesError) {
         guard isConnected else { throw .notConnected }
         let requestTime = String(Date.now.millisecondsSince1970)
         try await send([
             "subscribe": subscribe,
             "method": "login",
             "param": [
-                "apiKey": configuration.apiKey,
-                "signature": hmacSHA256(configuration.apiKey + requestTime, secret: configuration.secretKey),
+                "apiKey": apiKey,
+                "signature": hmacSHA256(apiKey + requestTime, secret: secretKey),
                 "reqTime": requestTime,
             ],
         ])

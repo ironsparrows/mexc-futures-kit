@@ -8,10 +8,11 @@ import WebSocketKit
 
 /// A client for the MEXC futures WebSocket API.
 ///
-/// The socket delivers market data, private account data and connection changes as ``Event`` values:
+/// The socket delivers market data, private account data and connection changes as ``Event`` values.
+/// Market data needs no credentials:
 ///
 /// ```swift
-/// let socket = MexcFuturesWebSocket(configuration: .init(apiKey: "...", secretKey: "..."))
+/// let socket = MexcFuturesWebSocket()
 /// let events = socket.events()
 /// try await socket.connect()
 /// try await socket.subscribeToTicker(symbol: "BTC_USDT")
@@ -22,6 +23,8 @@ import WebSocketKit
 ///     }
 /// }
 /// ```
+///
+/// To receive private account data, log in with ``login(apiKey:secretKey:subscribe:)``.
 ///
 /// The socket sends keep-alive pings while connected and, when ``Configuration/autoReconnect`` is on,
 /// reconnects after the connection drops.
@@ -45,7 +48,7 @@ public actor MexcFuturesWebSocket {
     /// - Parameters:
     ///   - configuration: The settings of the socket.
     ///   - logger: The logger that records connection changes and messages.
-    public init(configuration: Configuration, logger: Logger = Logger(label: "MexcFuturesKit")) {
+    public init(configuration: Configuration = Configuration(), logger: Logger = Logger(label: "MexcFuturesKit")) {
         self.configuration = configuration
         self.logger = logger
     }
