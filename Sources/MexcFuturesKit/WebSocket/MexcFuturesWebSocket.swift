@@ -136,6 +136,7 @@ extension MexcFuturesWebSocket {
 
     private enum Frame: Sendable {
         case text(String)
+        case binary(Data)
         case closed(code: Int?)
     }
 
@@ -149,7 +150,7 @@ extension MexcFuturesWebSocket {
                     frames.yield(.text(text))
                 }
                 socket.onBinary { _, buffer in
-                    frames.yield(.text(String(buffer: buffer)))
+                    frames.yield(.binary(Data(buffer.readableBytesView)))
                 }
                 socket.onClose.whenComplete { _ in
                     frames.yield(.closed(code: socket.closeCode.map { Int(UInt16(webSocketErrorCode: $0)) }))
@@ -174,9 +175,25 @@ extension MexcFuturesWebSocket {
         switch frame {
         case .text(let text):
             receive(text)
+        case .binary(let data):
+            receive(data)
         case .closed(let code):
             handleClose(of: socket, code: code)
         }
+    }
+
+    func receive(_ data: Data) {
+        guard configuration.gzipPayloads else {
+            logger.warning("Unexpected binary WebSocket frame", metadata: ["bytes": "\(data.count)"])
+            broadcaster.yield(.error(.unexpectedBinaryFrame(byteCount: data.count)))
+            return
+        }
+        guard let decompressed = try? data.gunzipped() else {
+            logger.error("Binary WebSocket frame is not valid gzip", metadata: ["bytes": "\(data.count)"])
+            broadcaster.yield(.error(.malformedMessage("Binary frame of \(data.count) bytes is not valid gzip")))
+            return
+        }
+        receive(String(decoding: decompressed, as: UTF8.self))
     }
 
     func receive(_ text: String) {

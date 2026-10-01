@@ -42,6 +42,9 @@ public enum MexcFuturesError: Error {
     /// The WebSocket server sent a frame that is not valid JSON.
     case malformedMessage(String)
 
+    /// The WebSocket server sent a binary frame although gzip payloads are off.
+    case unexpectedBinaryFrame(byteCount: Int)
+
     /// The task waiting for the operation was cancelled.
     case cancelled
 
@@ -95,6 +98,8 @@ extension MexcFuturesError: LocalizedError {
             "WebSocket error response: \(message)"
         case .malformedMessage(let text):
             "Malformed WebSocket message: \(text)"
+        case .unexpectedBinaryFrame(let byteCount):
+            "Unexpected binary WebSocket frame of \(byteCount) bytes. Gzip payloads are off."
         case .cancelled:
             "The operation was cancelled."
         case .unknown(let message):

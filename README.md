@@ -202,7 +202,7 @@ With `autoReconnect` on (the default), the socket reconnects after the connectio
 try await socket.subscribeToAllTickers()
 try await socket.subscribeToTicker(symbol: "BTC_USDT")
 try await socket.subscribeToDeals(symbol: "BTC_USDT")
-try await socket.subscribeToDepth(symbol: "BTC_USDT")
+try await socket.subscribeToDepth(symbol: "BTC_USDT", merged: false)
 try await socket.subscribeToFullDepth(symbol: "BTC_USDT", limit: .ten)
 try await socket.subscribeToKline(symbol: "BTC_USDT", interval: .oneMinute)
 try await socket.subscribeToFundingRate(symbol: "BTC_USDT")
@@ -211,6 +211,20 @@ try await socket.subscribeToFairPrice(symbol: "BTC_USDT")
 ```
 
 Each subscription has a matching `unsubscribeFrom…` method.
+
+### Compression
+
+Every kind of compression is off by default. MEXC pushes small, frequent messages, so decompressing each one costs more latency than it saves bandwidth.
+
+| Kind | Setting | Default |
+| --- | --- | --- |
+| Transport (permessage-deflate, RFC 7692) | Not available. WebSocketKit and SwiftNIO do not implement it, so the handshake never offers it. | Off |
+| Payload gzip | `Configuration.gzipPayloads`. Subscriptions send `"gzip": false` or `true`. When it is on, the socket decompresses binary frames. When it is off, a binary frame arrives as `MexcFuturesError.unexpectedBinaryFrame`. | Off |
+| Order book merging | `subscribeToDepth(symbol:merged:)`. It sends MEXC's `compress` field. `true` makes MEXC merge changes and push them about every 200 ms. `false` pushes every change. | Every change |
+
+Settings are fixed for the life of a socket. To change them, create a new socket.
+
+When you receive every depth change, keep your own order book. Start from a `contractDepth(symbol:limit:)` snapshot, apply the changes in `version` order, and reload the snapshot when a version is missing.
 
 ### Events
 
