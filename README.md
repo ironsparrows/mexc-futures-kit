@@ -10,7 +10,7 @@ A Swift SDK for MEXC Futures trading, with a REST client and a WebSocket client.
 - **REST client.** Submit, cancel and query orders. Read positions, balances, fees, risk limits and market data.
 - **WebSocket client.** Stream market data and private account updates as typed events over `AsyncStream`.
 - **Typed REST results.** Every REST method returns a `Result` with typed models, such as `Ticker`, `Order` and `Position`, or MEXC's rejection. WebSocket events carry a `JSON` value that decodes only the fields you read.
-- **Fast.** On the same MEXC traffic, the WebSocket client delivers data with lower latency and less CPU than the TypeScript SDK. See [Performance](#performance).
+- **Fast.** Decodes MEXC responses and WebSocket messages 10–26× faster than Foundation. See [Performance](#performance).
 - **Swift concurrency.** `async`/`await` throughout, a `Sendable` client, an actor-based socket and typed throws with `MexcFuturesError`.
 - **Auto-reconnect.** The socket sends keep-alive pings and reconnects after the connection drops.
 
@@ -297,28 +297,32 @@ MexcFuturesKit parses JSON with [yyjson](https://github.com/ibireme/yyjson), a J
 
 ### REST decoding
 
-Measured on one Mac with release builds and real MEXC payloads: a ticker (588 bytes), an order book with 20 levels per side (772 bytes), and every contract (1,207 contracts, 2.3 MB). The numbers are the median of 3 runs. The Foundation `Codable` structs have the same fields as the SDK models. The TypeScript SDK only runs `JSON.parse`, because its types exist only at compile time.
+Measured on one Mac with release builds and real MEXC payloads: a ticker (588 bytes), an order book with 20 levels per side (772 bytes), and every contract (1,207 contracts, 2.3 MB). The numbers are the median of 3 runs. The Foundation `Codable` structs have the same fields as the SDK models.
 
-| | Foundation `JSONDecoder` | Foundation `JSONSerialization` | TypeScript SDK | **MexcFuturesKit** |
-| --- | --- | --- | --- | --- |
-| `Ticker` | 6.26 µs | 6.75 µs | 0.97 µs | **0.45 µs** |
-| `ContractDepth`, 20 levels per side | 27.5 µs | 8.1 µs | 1.98 µs | **1.07 µs** |
-| `[ContractDetail]`, 1,207 contracts | 14.5 ms | 12.0 ms | 2.81 ms | **1.37 ms** |
+| | Foundation `JSONDecoder` | Foundation `JSONSerialization` | **MexcFuturesKit** |
+| --- | --- | --- | --- |
+| `Ticker` | 6.26 µs | 6.75 µs | **0.45 µs** (14× faster) |
+| `ContractDepth`, 20 levels per side | 27.5 µs | 8.1 µs | **1.07 µs** (26× faster) |
+| `[ContractDetail]`, 1,207 contracts | 14.5 ms | 12.0 ms | **1.37 ms** (10× faster) |
 
-Against Foundation's `JSONDecoder`, MexcFuturesKit decodes a ticker 14× faster, an order book 26× faster and the contract list 10× faster. It is about 2× faster than the TypeScript SDK on all three.
+The speedups compare MexcFuturesKit with `JSONDecoder`.
 
 ### WebSocket
 
-The WebSocket client was measured against the [TypeScript SDK](https://github.com/oboshto/mexc-futures-sdk) on real MEXC depth traffic. Both clients received the same captured messages from a local server on one Mac, in release builds. Latency runs from the server's send to the handler.
+Decoding one real MEXC depth update, which is the most frequent message on a market data connection (median of 3 runs):
 
-| | TypeScript SDK | `onEvent` | `events()` stream |
+| | Foundation `JSONDecoder` | Foundation `JSONSerialization` | **MexcFuturesKit** |
 | --- | --- | --- | --- |
-| Latency at 3,440 msg/s (live MEXC rate), p50 / p99 | 0.09 / 0.22 ms | 0.07 / 0.17 ms | 0.09 / 0.20 ms |
-| CPU at 3,440 msg/s | 5% of one core | 3–4% of one core | 7% of one core |
-| CPU per message at full load | 2.1 µs | 1.8 µs | 3.3 µs |
-| Peak memory | 74 MB | 14 MB | 14 MB |
+| One depth update | 2.92 µs | 2.75 µs | **0.21 µs** (14× faster) |
 
-At full load both SDKs received about 480,000 msg/s, which was the limit of the replay server.
+The whole client was also measured end to end. A local server replayed captured MEXC depth traffic to it on one Mac, in a release build. Latency runs from the server's send to your handler.
+
+| | `onEvent` | `events()` stream |
+| --- | --- | --- |
+| Latency at 3,440 msg/s (live MEXC rate), p50 / p99 | 0.07 / 0.17 ms | 0.09 / 0.20 ms |
+| CPU at 3,440 msg/s | 3–4% of one core | 7% of one core |
+| CPU per message at full load | 1.8 µs | 3.3 µs |
+| Peak memory | 14 MB | 14 MB |
 
 ### Why speed matters
 
