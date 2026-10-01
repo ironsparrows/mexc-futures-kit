@@ -33,7 +33,7 @@ extension ContractDepth {
             asks: node["asks"].map(Level.init(node:)) ?? [],
             bids: node["bids"].map(Level.init(node:)) ?? [],
             version: node["version"].int64Value,
-            timestamp: node["timestamp"].dateValue
+            timestamp: node["timestamp"].date ?? node["cts"].dateValue
         )
     }
 }

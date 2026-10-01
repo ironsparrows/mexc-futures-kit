@@ -69,15 +69,17 @@ struct MexcFuturesWebSocketConnectionTests {
             try await server.send(["channel": "push.ticker", "data": ["symbol": "BTC_USDT"]])
 
             for stream in [events, second] {
-                let ticker = await stream.compactMap { $0.caseName == "ticker" ? $0.payload : nil }.first { _ in true }
-                #expect(ticker?["symbol"].string == "BTC_USDT")
+                let ticker = await stream.compactMap { event -> Ticker? in
+                    if case .ticker(let ticker) = event { ticker } else { nil }
+                }.first { _ in true }
+                #expect(ticker?.symbol == "BTC_USDT")
             }
         }
     }
 
     @Test func handlerReceivesPushedData() async throws {
         try await withConnectedSocket { server, socket, _ in
-            let (tickers, continuation) = AsyncStream.makeStream(of: JSON.self)
+            let (tickers, continuation) = AsyncStream.makeStream(of: Ticker.self)
             socket.onEvent { event in
                 if case .ticker(let ticker) = event {
                     continuation.yield(ticker)
@@ -86,7 +88,7 @@ struct MexcFuturesWebSocketConnectionTests {
 
             try await server.send(["channel": "push.ticker", "data": ["symbol": "BTC_USDT"]])
 
-            #expect(await tickers.first { _ in true }?["symbol"].string == "BTC_USDT")
+            #expect(await tickers.first { _ in true }?.symbol == "BTC_USDT")
         }
     }
 

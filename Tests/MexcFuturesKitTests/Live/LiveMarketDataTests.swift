@@ -53,7 +53,7 @@ struct LiveMarketDataTests {
                 subscribed = channel == "ticker"
             case .ticker(let ticker):
                 #expect(subscribed)
-                #expect(ticker["symbol"].string == "BTC_USDT")
+                #expect(ticker.symbol == "BTC_USDT")
                 await socket.disconnect()
                 #expect(await socket.isConnected == false)
                 return
@@ -70,8 +70,8 @@ struct LiveMarketDataTests {
         try await socket.connect()
 
         for await event in events {
-            if case .pong(let timestamp) = event {
-                #expect(timestamp.int64Value > 0)
+            if case .pong(let serverTime) = event {
+                #expect(serverTime.timeIntervalSinceNow > -60)
                 break
             }
         }

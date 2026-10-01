@@ -9,7 +9,7 @@ A Swift SDK for MEXC Futures trading, with a REST client and a WebSocket client.
 
 - **REST client.** Submit, cancel and query orders. Read positions, balances, fees, risk limits and market data.
 - **WebSocket client.** Stream market data and private account updates as typed events over `AsyncStream`.
-- **Typed REST results.** Every REST method returns a `Result` with typed models, such as `Ticker`, `Order` and `Position`, or MEXC's rejection. WebSocket events carry a `JSON` value that decodes only the fields you read.
+- **Typed REST results.** Every REST method returns a `Result` with typed models, such as `Ticker`, `Order` and `Position`, or MEXC's rejection. WebSocket pushes decode into the same typed models.
 - **Fast.** Decodes MEXC responses and WebSocket messages 10–26× faster than Foundation. See [Performance](#performance).
 - **Swift concurrency.** `async`/`await` throughout, a `Sendable` client, an actor-based socket and typed throws with `MexcFuturesError`.
 - **Auto-reconnect.** The socket sends keep-alive pings and reconnects after the connection drops.
@@ -182,7 +182,7 @@ try await socket.subscribeToTicker(symbol: "BTC_USDT")
 
 for await event in events {
     if case .ticker(let ticker) = event {
-        print("BTC price:", ticker["lastPrice"].doubleValue)
+        print("BTC price:", ticker.lastPrice)
     }
 }
 ```
@@ -200,11 +200,11 @@ try await account.setPersonalFilter([
 for await event in events {
     switch event {
     case .orderUpdate(let order):
-        print("Order:", order["orderId"].int64Value, order["state"].intValue)
+        print("Order:", order.orderID, order.state as Any)
     case .positionUpdate(let position):
-        print("Position:", position["symbol"].stringValue, position["holdVol"].doubleValue)
+        print("Position:", position.symbol, position.holdVolume)
     case .assetUpdate(let asset):
-        print("Balance:", asset["currency"].stringValue, asset["availableBalance"].doubleValue)
+        print("Balance:", asset.currency, asset.availableBalance)
     case .error(let error):
         print("Error:", error.localizedDescription)
     default:
@@ -223,8 +223,8 @@ Each call to `events()` returns a new stream, and every stream receives every ev
 
 ```swift
 socket.onEvent { event in
-    if case .depth(let depth) = event {
-        print("Best ask:", depth["asks"][0][0].doubleValue)
+    if case .depth(_, let depth) = event {
+        print("Best ask:", depth.asks.first?.price as Any)
     }
 }
 ```
@@ -263,26 +263,39 @@ When you receive every depth change, keep your own order book. Start from a `con
 
 ### Events
 
-| Event | Meaning |
-| --- | --- |
-| `connected`, `disconnected(code:)` | The connection opened or closed |
-| `login`, `loginFailed` | The result of a login |
-| `filterSet`, `filterFailed` | The result of `setPersonalFilter(_:)` |
-| `subscribed(channel:data:)`, `unsubscribed(channel:data:)` | The server confirmed a subscription change |
-| `pong` | The server answered a keep-alive ping |
-| `tickers`, `ticker`, `deal`, `depth`, `kline`, `fundingRate`, `indexPrice`, `fairPrice` | Market data |
-| `orderUpdate`, `orderDeal`, `positionUpdate`, `assetUpdate`, `stopOrder`, `stopPlanOrder`, `liquidateRisk`, `adlLevel`, `riskLimit`, `planOrder` | Private account data |
-| `error` | A connection, server or malformed-message error |
-| `message` | A message on any other channel |
+| Event | Payload | Meaning |
+| --- | --- | --- |
+| `connected`, `disconnected(code:)` | | The connection opened or closed |
+| `login`, `loginFailed` | `JSON` | The result of a login |
+| `filterSet`, `filterFailed` | `JSON` | The result of `setPersonalFilter(_:)` |
+| `subscribed(channel:data:)`, `unsubscribed(channel:data:)` | `JSON` | The server confirmed a subscription change |
+| `pong(serverTime:)` | `Date` | The server answered a keep-alive ping |
+| `tickers` | `[TickerSummary]` | Every contract's ticker |
+| `ticker` | `Ticker` | One contract's ticker |
+| `deal(symbol:_:)` | `[Deal]` | Trades |
+| `depth(symbol:_:)`, `fullDepth(symbol:_:)` | `ContractDepth` | Order book changes and snapshots |
+| `kline` | `Kline` | A candlestick |
+| `fundingRate` | `FundingRate` | The funding rate |
+| `indexPrice`, `fairPrice` | `ContractPrice` | The index or fair price |
+| `orderUpdate` | `Order` | An order changed |
+| `orderDeal` | `OrderDeal` | An order filled |
+| `positionUpdate` | `Position` | A position changed |
+| `assetUpdate` | `AssetUpdate` | A balance changed |
+| `stopPlanOrder` | `StopOrder` | A take-profit or stop-loss order changed |
+| `planOrder` | `PlanOrder` | A trigger order changed |
+| `liquidateRisk` | `LiquidationRisk` | A position's liquidation price or margin ratio changed |
+| `stopOrder`, `adlLevel`, `riskLimit` | `JSON` | Other private account data |
+| `error` | `MexcFuturesError` | A connection, server or malformed-message error |
+| `message` | `JSON` | A message on any other channel |
 
 ## JSON
 
-WebSocket events and API error bodies carry a `JSON` value. It is parsed by [yyjson](https://github.com/ibireme/yyjson), and fields are converted to Swift types only when you read them:
+Acknowledgements, unmodeled channels and API error bodies carry a `JSON` value. It is parsed by [yyjson](https://github.com/ibireme/yyjson), and fields are converted to Swift types only when you read them:
 
 ```swift
-let price = ticker["lastPrice"].doubleValue
-let orderID = order["orderId"].int64Value
-let bids = depth["bids"].arrayValue
+let symbol = message["symbol"].stringValue
+let orderID = message["data"]["orderId"].int64Value
+let levels = message["data"]["bids"].arrayValue
 ```
 
 Optional accessors (`string`, `int64`, `double`, `bool`, `array`, `dictionary`) return `nil` for a missing value or a value of another type. Non-optional accessors (`stringValue`, `int64Value`, …) return an empty or zero value. Integers keep full 64-bit precision, so order IDs such as `817027833053397504` stay exact. `rawData()` returns the value as compact JSON, ready for `JSONDecoder` if you prefer your own `Codable` models.
@@ -309,19 +322,19 @@ Measured on one Mac with release builds and real MEXC payloads: a ticker (588 by
 
 ### WebSocket
 
-Decoding one real MEXC depth update, which is the most frequent message on a market data connection (median of 3 runs):
+Decoding one real MEXC depth update into `ContractDepth`, which is the most frequent message on a market data connection (median of 3 runs):
 
 | | Foundation `JSONDecoder` | **MexcFuturesKit** |
 | --- | --- | --- |
-| One depth update | 2.92 µs | **0.21 µs** (14× faster) |
+| One depth update | 2.99 µs | **0.29 µs** (10× faster) |
 
 The whole client was also measured end to end. A local server replayed captured MEXC depth traffic to it on one Mac, in a release build. Latency runs from the server's send to your handler.
 
 | | `onEvent` | `events()` stream |
 | --- | --- | --- |
-| Latency at 3,440 msg/s (live MEXC rate), p50 / p99 | 0.07 / 0.17 ms | 0.09 / 0.20 ms |
-| CPU at 3,440 msg/s | 3–4% of one core | 7% of one core |
-| CPU per message at full load | 1.8 µs | 3.3 µs |
+| Latency at 3,440 msg/s (live MEXC rate), p50 / p99 | 0.06 / 0.17 ms | 0.09 / 0.23 ms |
+| CPU at 3,440 msg/s | 3% of one core | 6% of one core |
+| CPU per message at full load | 1.9 µs | 3.5 µs |
 | Peak memory | 14 MB | 14 MB |
 
 ### Why speed matters

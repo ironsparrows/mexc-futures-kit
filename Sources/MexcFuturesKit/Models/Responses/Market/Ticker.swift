@@ -29,8 +29,8 @@ public struct Ticker: Sendable, Hashable {
         public var rate365Days: Double
     }
 
-    /// The contract identifier.
-    public var contractID: Int64
+    /// The contract identifier, when MEXC reports it.
+    public var contractID: Int64?
 
     /// The contract symbol, such as `BTC_USDT`.
     public var symbol: String
@@ -94,7 +94,7 @@ extension Ticker {
     init(node: JSONNode) {
         var field = JSONObjectReader(node)
         self.init(
-            contractID: field("contractId").int64Value,
+            contractID: field("contractId").int64,
             symbol: field("symbol").stringValue,
             lastPrice: field("lastPrice").doubleValue,
             bid1: field("bid1").doubleValue,
@@ -112,14 +112,27 @@ extension Ticker {
             maxBidPrice: field("maxBidPrice").doubleValue,
             minAskPrice: field("minAskPrice").doubleValue,
             timestamp: field("timestamp").dateValue,
-            riseFallRates: RiseFallRates(node: field("riseFallRates")),
+            riseFallRates: RiseFallRates(node: field("riseFallRates"), zone: node["zone"], value: node["riseFallValue"]),
             riseFallRatesOfTimezone: field("riseFallRatesOfTimezone").map(\.doubleValue) ?? []
         )
     }
 }
 
 extension Ticker.RiseFallRates {
-    init(node: JSONNode) {
+    init(node: JSONNode, zone: JSONNode, value: JSONNode) {
+        guard node.isObject else {
+            self.init(
+                zone: zone.stringValue,
+                rate: node[0].doubleValue,
+                value: value.doubleValue,
+                rate7Days: node[1].doubleValue,
+                rate30Days: node[2].doubleValue,
+                rate90Days: node[3].doubleValue,
+                rate180Days: node[4].doubleValue,
+                rate365Days: node[5].doubleValue
+            )
+            return
+        }
         var field = JSONObjectReader(node)
         self.init(
             zone: field("zone").stringValue,
