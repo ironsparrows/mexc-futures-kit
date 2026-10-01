@@ -10,7 +10,7 @@ import MexcFuturesKit
 )
 struct LiveMarketDataTests {
     @Test func restReturnsTicker() async throws {
-        let client = MexcFuturesClient(configuration: .init(authToken: ""))
+        let client = MexcFuturesClient()
 
         let ticker = try await client.ticker(symbol: "BTC_USDT")
 

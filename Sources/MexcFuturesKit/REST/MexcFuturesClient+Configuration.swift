@@ -3,12 +3,6 @@ public import Foundation
 extension MexcFuturesClient {
     /// The settings of a ``MexcFuturesClient``.
     public struct Configuration: Sendable {
-        /// The WEB authorization token of a signed-in browser session.
-        ///
-        /// Copy the `authorization` header, which starts with `WEB`, from any request to
-        /// `futures.mexc.com` in the browser's developer tools.
-        public var authToken: String
-
         /// The base URL of the futures REST API.
         public var baseURL: URL
 
@@ -23,13 +17,11 @@ extension MexcFuturesClient {
 
         /// Creates the settings of a ``MexcFuturesClient``.
         public init(
-            authToken: String,
             baseURL: URL = URL(string: "https://futures.mexc.com/api/v1")!,
             timeout: Duration = .seconds(30),
             userAgent: String? = nil,
             customHeaders: [String: String] = [:]
         ) {
-            self.authToken = authToken
             self.baseURL = baseURL
             self.timeout = timeout
             self.userAgent = userAgent

@@ -30,9 +30,15 @@ final class StubTransport: HTTPTransport {
 extension MexcFuturesClient {
     static func stubbed(_ transport: StubTransport, userAgent: String? = nil, customHeaders: [String: String] = [:]) -> Self {
         MexcFuturesClient(
-            configuration: Configuration(authToken: "WEB-token", userAgent: userAgent, customHeaders: customHeaders),
+            configuration: Configuration(userAgent: userAgent, customHeaders: customHeaders),
             transport: transport,
             logger: .init(label: "test")
         )
+    }
+}
+
+extension MexcFuturesClient.Account {
+    static func stubbed(_ transport: StubTransport) -> Self {
+        MexcFuturesClient.stubbed(transport).account(authToken: "WEB-token")
     }
 }

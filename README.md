@@ -41,7 +41,11 @@ MexcFuturesKit uses the `master` branch of SwiftyJSON, because only that branch 
 
 ## Authentication
 
+Market data needs no credentials, on REST or on the WebSocket. Only account data and trading need them.
+
 ### REST: browser session token
+
+`MexcFuturesClient.account(authToken:)` needs this token.
 
 1. Sign in to MEXC Futures in your browser.
 2. Open the developer tools and go to the Network tab.
@@ -50,7 +54,7 @@ MexcFuturesKit uses the `master` branch of SwiftyJSON, because only that branch 
 
 ### WebSocket: API keys
 
-Only private account data needs API keys. Market data streams need none.
+`MexcFuturesWebSocket.login(apiKey:secretKey:subscribe:)` needs these keys.
 
 1. Open MEXC API Management.
 2. Create an API key and a secret key.
@@ -58,16 +62,18 @@ Only private account data needs API keys. Market data streams need none.
 
 ## REST client
 
+`MexcFuturesClient` serves public market data without credentials. `account(authToken:)` returns a `MexcFuturesClient.Account`, which serves account data and trading. Every account request carries the WEB token.
+
 ```swift
 import MexcFuturesKit
 import SwiftyJSON
 
-let client = MexcFuturesClient(configuration: .init(authToken: "WEB..."))
-
+let client = MexcFuturesClient()
 let ticker = try await client.ticker(symbol: "BTC_USDT")
 print("BTC price:", ticker["data"]["lastPrice"].doubleValue)
 
-let order = try await client.submitOrder(
+let account = client.account(authToken: "WEB...")
+let order = try await account.submitOrder(
     SubmitOrderRequest(
         symbol: "BTC_USDT",
         price: 50000,
@@ -82,6 +88,17 @@ print("Order ID:", order["data"].int64Value)
 ```
 
 A method returns the full response body, including the `success`, `code` and `data` fields. A response with `"success": false` is returned, not thrown. Check `success` before you read `data`.
+
+### Market data: `MexcFuturesClient`
+
+| Method | Endpoint |
+| --- | --- |
+| `ticker(symbol:)` | `GET /contract/ticker` |
+| `contractDetail(symbol:)` | `GET /contract/detail` |
+| `contractDepth(symbol:limit:)` | `GET /contract/depth/{symbol}` |
+| `testConnection()` | Requests the `BTC_USDT` ticker and returns whether it succeeded |
+
+### Account data and trading: `MexcFuturesClient.Account`
 
 | Method | Endpoint |
 | --- | --- |
@@ -98,10 +115,6 @@ A method returns the full response body, including the `success`, `code` and `da
 | `accountAsset(currency:)` | `GET /private/account/asset/{currency}` |
 | `openPositions(symbol:)` | `GET /private/position/open_positions` |
 | `positionHistory(_:)` | `GET /private/position/list/history_positions` |
-| `ticker(symbol:)` | `GET /contract/ticker` |
-| `contractDetail(symbol:)` | `GET /contract/detail` |
-| `contractDepth(symbol:limit:)` | `GET /contract/depth/{symbol}` |
-| `testConnection()` | Requests the `BTC_USDT` ticker and returns whether it succeeded |
 
 ### Orders
 
@@ -129,7 +142,7 @@ let closeOrder = SubmitOrderRequest(
 )
 ```
 
-Before signing, the client validates the order. An invalid order throws `MexcFuturesError.validation`. The order is not sent.
+Before signing, the account client validates the order. An invalid order throws `MexcFuturesError.validation`. The order is not sent.
 
 ## WebSocket client
 
@@ -216,7 +229,7 @@ All methods throw `MexcFuturesError`:
 
 ```swift
 do {
-    let asset = try await client.accountAsset(currency: "USDT")
+    let asset = try await account.accountAsset(currency: "USDT")
     print(asset["data"]["availableBalance"].doubleValue)
 } catch .authentication {
     print("Update your WEB token.")
@@ -236,7 +249,7 @@ The clients log through [swift-log](https://github.com/apple/swift-log). Pass yo
 ```swift
 var logger = Logger(label: "trading")
 logger.logLevel = .debug
-let client = MexcFuturesClient(configuration: .init(authToken: "WEB..."), logger: logger)
+let client = MexcFuturesClient(logger: logger)
 ```
 
 The logs never include request signatures or WebSocket login parameters.

@@ -6,9 +6,30 @@ import Testing
 
 @Suite("MexcFuturesClient requests", .tags(.networking))
 struct MexcFuturesClientRequestTests {
-    enum Call: CaseIterable, Sendable {
+    enum MarketCall: CaseIterable, Sendable {
+        case ticker, contractDetail, contractDepth
+
+        var expectedURL: String {
+            let base = "https://futures.mexc.com/api/v1/"
+            return switch self {
+            case .ticker: base + "contract/ticker?symbol=BTC_USDT"
+            case .contractDetail: base + "contract/detail"
+            case .contractDepth: base + "contract/depth/BTC_USDT?limit=5"
+            }
+        }
+
+        func perform(on client: MexcFuturesClient) async throws(MexcFuturesError) -> JSON {
+            switch self {
+            case .ticker: try await client.ticker(symbol: "BTC_USDT")
+            case .contractDetail: try await client.contractDetail()
+            case .contractDepth: try await client.contractDepth(symbol: "BTC_USDT", limit: 5)
+            }
+        }
+    }
+
+    enum AccountCall: CaseIterable, Sendable {
         case orderHistory, orderDeals, order, orderByExternalID, riskLimits, feeRates, accountAsset
-        case openPositions, positionHistory, ticker, contractDetail, contractDepth
+        case openPositions, positionHistory
 
         var expectedURL: String {
             let base = "https://futures.mexc.com/api/v1/"
@@ -22,32 +43,38 @@ struct MexcFuturesClientRequestTests {
             case .accountAsset: base + "private/account/asset/USDT"
             case .openPositions: base + "private/position/open_positions?symbol=ETH_USDT"
             case .positionHistory: base + "private/position/list/history_positions?page_num=1&page_size=20"
-            case .ticker: base + "contract/ticker?symbol=BTC_USDT"
-            case .contractDetail: base + "contract/detail"
-            case .contractDepth: base + "contract/depth/BTC_USDT?limit=5"
             }
         }
 
-        func perform(on client: MexcFuturesClient) async throws(MexcFuturesError) -> JSON {
+        func perform(on account: MexcFuturesClient.Account) async throws(MexcFuturesError) -> JSON {
             switch self {
-            case .orderHistory: try await client.orderHistory(OrderHistoryQuery(symbol: "BTC_USDT"))
-            case .orderDeals: try await client.orderDeals(OrderDealsQuery(symbol: "BTC_USDT"))
-            case .order: try await client.order(id: 817027833053397504)
-            case .orderByExternalID: try await client.order(symbol: "BTC_USDT", externalOrderID: "client/1")
-            case .riskLimits: try await client.riskLimits()
-            case .feeRates: try await client.feeRates()
-            case .accountAsset: try await client.accountAsset(currency: "USDT")
-            case .openPositions: try await client.openPositions(symbol: "ETH_USDT")
-            case .positionHistory: try await client.positionHistory()
-            case .ticker: try await client.ticker(symbol: "BTC_USDT")
-            case .contractDetail: try await client.contractDetail()
-            case .contractDepth: try await client.contractDepth(symbol: "BTC_USDT", limit: 5)
+            case .orderHistory: try await account.orderHistory(OrderHistoryQuery(symbol: "BTC_USDT"))
+            case .orderDeals: try await account.orderDeals(OrderDealsQuery(symbol: "BTC_USDT"))
+            case .order: try await account.order(id: 817027833053397504)
+            case .orderByExternalID: try await account.order(symbol: "BTC_USDT", externalOrderID: "client/1")
+            case .riskLimits: try await account.riskLimits()
+            case .feeRates: try await account.feeRates()
+            case .accountAsset: try await account.accountAsset(currency: "USDT")
+            case .openPositions: try await account.openPositions(symbol: "ETH_USDT")
+            case .positionHistory: try await account.positionHistory()
             }
         }
     }
 
-    @Test(arguments: Call.allCases)
-    func getRequestTargetsEndpoint(call: Call) async throws {
+    @Test(arguments: MarketCall.allCases)
+    func marketRequestIsUnauthenticated(call: MarketCall) async throws {
+        let transport = StubTransport()
+
+        _ = try await call.perform(on: .stubbed(transport))
+
+        let request = try #require(transport.requests.first)
+        #expect(request.httpMethod == "GET")
+        #expect(request.url?.absoluteString == call.expectedURL)
+        #expect(request.value(forHTTPHeaderField: "authorization") == nil)
+    }
+
+    @Test(arguments: AccountCall.allCases)
+    func accountRequestCarriesToken(call: AccountCall) async throws {
         let transport = StubTransport()
 
         _ = try await call.perform(on: .stubbed(transport))
@@ -62,7 +89,7 @@ struct MexcFuturesClientRequestTests {
     @Test func requestUsesConfiguredTimeout() async throws {
         let transport = StubTransport()
         let client = MexcFuturesClient(
-            configuration: .init(authToken: "WEB-token", timeout: .milliseconds(1500)),
+            configuration: .init(timeout: .milliseconds(1500)),
             transport: transport,
             logger: .init(label: "test")
         )
@@ -91,7 +118,7 @@ struct MexcFuturesClientRequestTests {
             customHeaders: ["x-language": "el-GR", "authorization": "other"]
         )
 
-        _ = try await client.ticker(symbol: "BTC_USDT")
+        _ = try await client.account(authToken: "WEB-token").feeRates()
 
         let request = try #require(transport.requests.first)
         #expect(request.value(forHTTPHeaderField: "user-agent") == "MexcFuturesKit")
@@ -106,7 +133,7 @@ struct MexcFuturesClientSignedRequestTests {
         let transport = StubTransport(body: #"{"success":true,"code":0,"data":817027833053397504}"#)
         let order = SubmitOrderRequest(symbol: "BTC_USDT", price: 50000, volume: 1, side: .openLong, type: .market, openType: .isolated)
 
-        let response = try await MexcFuturesClient.stubbed(transport).submitOrder(order)
+        let response = try await MexcFuturesClient.Account.stubbed(transport).submitOrder(order)
 
         let request = try #require(transport.requests.first)
         let body = String(decoding: try #require(request.httpBody), as: UTF8.self)
@@ -123,7 +150,7 @@ struct MexcFuturesClientSignedRequestTests {
         let order = SubmitOrderRequest(symbol: "BTC_USDT", price: 50000, volume: 0, side: .openLong, type: .market, openType: .isolated)
 
         await #expect(throws: MexcFuturesError.self) {
-            try await MexcFuturesClient.stubbed(transport).submitOrder(order)
+            try await MexcFuturesClient.Account.stubbed(transport).submitOrder(order)
         }
         #expect(transport.requests.isEmpty)
     }
@@ -131,7 +158,7 @@ struct MexcFuturesClientSignedRequestTests {
     @Test func cancelOrdersSendsIdentifiersAsStrings() async throws {
         let transport = StubTransport()
 
-        try await MexcFuturesClient.stubbed(transport).cancelOrders([817027833053397504, 1])
+        try await MexcFuturesClient.Account.stubbed(transport).cancelOrders([817027833053397504, 1])
 
         let request = try #require(transport.requests.first)
         #expect(request.url?.absoluteString == "https://futures.mexc.com/api/v1/private/order/cancel")
@@ -144,7 +171,7 @@ struct MexcFuturesClientSignedRequestTests {
         let orderIDs = (0..<count).map(Int64.init)
 
         await #expect(throws: MexcFuturesError.self) {
-            try await MexcFuturesClient.stubbed(transport).cancelOrders(orderIDs)
+            try await MexcFuturesClient.Account.stubbed(transport).cancelOrders(orderIDs)
         }
         #expect(transport.requests.isEmpty)
     }
@@ -152,7 +179,7 @@ struct MexcFuturesClientSignedRequestTests {
     @Test func cancelOrderByExternalIDSendsReference() async throws {
         let transport = StubTransport()
 
-        try await MexcFuturesClient.stubbed(transport).cancelOrder(symbol: "BTC_USDT", externalOrderID: "client-1")
+        try await MexcFuturesClient.Account.stubbed(transport).cancelOrder(symbol: "BTC_USDT", externalOrderID: "client-1")
 
         let request = try #require(transport.requests.first)
         #expect(request.url?.absoluteString == "https://futures.mexc.com/api/v1/private/order/cancel_with_external")
@@ -166,7 +193,7 @@ struct MexcFuturesClientSignedRequestTests {
     func cancelAllOrdersScopesToSymbol(symbol: String?, expectedBody: String) async throws {
         let transport = StubTransport()
 
-        try await MexcFuturesClient.stubbed(transport).cancelAllOrders(symbol: symbol)
+        try await MexcFuturesClient.Account.stubbed(transport).cancelAllOrders(symbol: symbol)
 
         let request = try #require(transport.requests.first)
         #expect(request.url?.absoluteString == "https://futures.mexc.com/api/v1/private/order/cancel_all")
@@ -198,7 +225,7 @@ struct MexcFuturesClientResponseTests {
         let transport = StubTransport(statusCode: 401, body: #"{"message":"Token expired"}"#)
 
         let error = try await #require(throws: MexcFuturesError.self) {
-            try await MexcFuturesClient.stubbed(transport).riskLimits()
+            try await MexcFuturesClient.Account.stubbed(transport).riskLimits()
         }
 
         guard case .authentication(let message) = error else {
@@ -231,7 +258,7 @@ struct MexcFuturesClientResponseTests {
         let transport = StubTransport(statusCode: 400, body: body)
 
         let error = try await #require(throws: MexcFuturesError.self) {
-            try await MexcFuturesClient.stubbed(transport).cancelAllOrders()
+            try await MexcFuturesClient.Account.stubbed(transport).cancelAllOrders()
         }
 
         guard case .signature = error else {
@@ -244,7 +271,7 @@ struct MexcFuturesClientResponseTests {
         let transport = StubTransport(statusCode: 500, body: #"{"code":9999}"#)
 
         let error = try await #require(throws: MexcFuturesError.self) {
-            try await MexcFuturesClient.stubbed(transport).order(id: 42)
+            try await MexcFuturesClient.Account.stubbed(transport).order(id: 42)
         }
 
         guard case .api(let message, let code, let statusCode, let method, let endpoint, let response) = error else {
@@ -263,7 +290,7 @@ struct MexcFuturesClientResponseTests {
         let transport = StubTransport(error: URLError(.timedOut))
 
         let error = try await #require(throws: MexcFuturesError.self) {
-            try await MexcFuturesClient.stubbed(transport).feeRates()
+            try await MexcFuturesClient.Account.stubbed(transport).feeRates()
         }
 
         guard case .network(let urlError) = error else {
