@@ -2,27 +2,41 @@ import Foundation
 import Synchronization
 
 final class EventBroadcaster<Element: Sendable>: Sendable {
-    private let continuations = Mutex<[UUID: AsyncStream<Element>.Continuation]>([:])
+    private struct Listeners {
+        var handlers: [@Sendable (Element) -> Void] = []
+        var continuations: [UUID: AsyncStream<Element>.Continuation] = [:]
+    }
+
+    private let listeners = Mutex(Listeners())
+
+    func addHandler(_ handler: @escaping @Sendable (Element) -> Void) {
+        listeners.withLock { $0.handlers.append(handler) }
+    }
 
     func makeStream(bufferingPolicy: AsyncStream<Element>.Continuation.BufferingPolicy) -> AsyncStream<Element> {
         let (stream, continuation) = AsyncStream.makeStream(of: Element.self, bufferingPolicy: bufferingPolicy)
         let id = UUID()
         continuation.onTermination = { [weak self] _ in
-            self?.continuations.withLock { $0[id] = nil }
+            self?.listeners.withLock { $0.continuations[id] = nil }
         }
-        continuations.withLock { $0[id] = continuation }
+        listeners.withLock { $0.continuations[id] = continuation }
         return stream
     }
 
     func yield(_ element: Element) {
-        for continuation in continuations.withLock({ Array($0.values) }) {
-            continuation.yield(element)
+        listeners.withLock { listeners in
+            for handler in listeners.handlers {
+                handler(element)
+            }
+            for continuation in listeners.continuations.values {
+                continuation.yield(element)
+            }
         }
     }
 
     deinit {
-        continuations.withLock { continuations in
-            for continuation in continuations.values {
+        listeners.withLock { listeners in
+            for continuation in listeners.continuations.values {
                 continuation.finish()
             }
         }

@@ -78,6 +78,18 @@ public actor MexcFuturesWebSocket {
         broadcaster.makeStream(bufferingPolicy: bufferingPolicy)
     }
 
+    /// Calls a handler with every event delivered after this call.
+    ///
+    /// The handler runs as each event is delivered. Market and account data reach it on the network
+    /// thread that received the message, with no hand-off to another task, so a handler is the lowest
+    /// latency way to consume the socket. Calls never overlap. Keep the handler short: the socket
+    /// handles no further messages until it returns.
+    ///
+    /// - Parameter handler: The closure that receives each event.
+    public nonisolated func onEvent(_ handler: @escaping @Sendable (Event) -> Void) {
+        broadcaster.addHandler(handler)
+    }
+
     /// Opens the connection.
     ///
     /// When an earlier connection dropped, the socket first logs in again, re-applies the personal filter

@@ -63,6 +63,21 @@ struct MexcFuturesWebSocketConnectionTests {
         }
     }
 
+    @Test func handlerReceivesPushedData() async throws {
+        try await withConnectedSocket { server, socket, _ in
+            let (tickers, continuation) = AsyncStream.makeStream(of: JSON.self)
+            socket.onEvent { event in
+                if case .ticker(let ticker) = event {
+                    continuation.yield(ticker)
+                }
+            }
+
+            try await server.send(["channel": "push.ticker", "data": ["symbol": "BTC_USDT"]])
+
+            #expect(await tickers.first { _ in true }?["symbol"].string == "BTC_USDT")
+        }
+    }
+
     @Test func malformedMessageDeliversErrorAndKeepsConnection() async throws {
         try await withConnectedSocket { server, socket, events in
             try await server.send(text: "not json")
