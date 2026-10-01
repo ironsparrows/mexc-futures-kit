@@ -162,19 +162,18 @@ for await event in events {
 }
 ```
 
-Private account data needs a login with an API key and secret key:
+Private account data needs a login. `login(apiKey:secretKey:subscribe:)` waits for the server to accept the keys. It returns a `MexcFuturesWebSocket.Account`, which selects the private data the server pushes:
 
 ```swift
-try await socket.login(apiKey: "...", secretKey: "...", subscribe: false)
+let account = try await socket.login(apiKey: "...", secretKey: "...", subscribe: false)
+try await account.setPersonalFilter([
+    PersonalFilter(.order, symbols: ["BTC_USDT", "ETH_USDT"]),
+    PersonalFilter(.position, symbols: ["BTC_USDT", "ETH_USDT"]),
+    PersonalFilter(.asset),
+])
 
 for await event in events {
     switch event {
-    case .login:
-        try await socket.setPersonalFilter([
-            PersonalFilter(.order, symbols: ["BTC_USDT", "ETH_USDT"]),
-            PersonalFilter(.position, symbols: ["BTC_USDT", "ETH_USDT"]),
-            PersonalFilter(.asset),
-        ])
     case .orderUpdate(let order):
         print("Order:", order["orderId"].int64Value, order["state"].intValue)
     case .positionUpdate(let position):
@@ -189,7 +188,7 @@ for await event in events {
 }
 ```
 
-The socket does not keep credentials. After a reconnect, call `login(apiKey:secretKey:subscribe:)` again to resume private data.
+A rejected login throws `MexcFuturesError.authentication`. Account methods throw `MexcFuturesError.notLoggedIn` once the session is no longer logged in.
 
 Each call to `events()` returns a new stream, and every stream receives every event.
 

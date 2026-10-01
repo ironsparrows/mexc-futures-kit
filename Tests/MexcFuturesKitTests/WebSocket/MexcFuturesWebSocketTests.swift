@@ -35,7 +35,7 @@ struct MexcFuturesWebSocketTests {
 
     @Test func personalFilterRequiresLogin() async {
         let error = await #expect(throws: MexcFuturesError.self) {
-            try await socket.subscribeToOrders(symbols: ["BTC_USDT"])
+            try await MexcFuturesWebSocket.Account(socket: socket).subscribeToOrders(symbols: ["BTC_USDT"])
         }
 
         guard case .notLoggedIn = error else {

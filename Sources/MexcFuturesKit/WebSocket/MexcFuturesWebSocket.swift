@@ -24,7 +24,8 @@ import WebSocketKit
 /// }
 /// ```
 ///
-/// To receive private account data, log in with ``login(apiKey:secretKey:subscribe:)``.
+/// Private account data needs a login with an API key. ``login(apiKey:secretKey:subscribe:)`` returns an
+/// ``Account`` that selects the private data the server pushes.
 ///
 /// The socket sends keep-alive pings while connected and, when ``Configuration/autoReconnect`` is on,
 /// reconnects after the connection drops.
@@ -34,8 +35,6 @@ public actor MexcFuturesWebSocket {
 
     /// Whether the session is logged in and receives private data.
     public private(set) var isLoggedIn = false
-
-    private static let url = URL(string: "wss://contract.mexc.com/edge")!
 
     private let logger: Logger
     private let broadcaster = EventBroadcaster<Event>()
@@ -90,7 +89,7 @@ public actor MexcFuturesWebSocket {
         let (frames, continuation) = AsyncStream.makeStream(of: Frame.self)
         let socket: WebSocket
         do {
-            socket = try await Self.open(Self.url, forwardingFramesTo: continuation)
+            socket = try await Self.open(configuration.url, forwardingFramesTo: continuation)
         } catch {
             continuation.finish()
             state = .disconnected
