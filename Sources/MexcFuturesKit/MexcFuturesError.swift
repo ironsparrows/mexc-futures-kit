@@ -33,7 +33,7 @@ public enum MexcFuturesError: Error {
     /// The WebSocket session is not logged in.
     case notLoggedIn
 
-    /// The WebSocket connection could not be opened.
+    /// The WebSocket connection could not be opened or could not send a message.
     case connectionFailed(any Error)
 
     /// The WebSocket server reported an error.
