@@ -89,9 +89,10 @@ public actor MexcFuturesWebSocket {
         logger.debug("Connecting to MEXC Futures WebSocket")
 
         let (frames, continuation) = AsyncStream.makeStream(of: Frame.self)
+        let router = MessageRouter(logger: logger, broadcaster: broadcaster, frames: continuation)
         let socket: WebSocket
         do {
-            socket = try await Self.open(configuration.url, forwardingFramesTo: continuation)
+            socket = try await Self.open(configuration.url, routingTo: router)
         } catch {
             continuation.finish()
             state = .disconnected
@@ -134,25 +135,51 @@ extension MexcFuturesWebSocket {
     }
 
     private enum Frame: Sendable {
-        case text(String)
+        case sessionEvent(Event)
         case closed(code: Int?)
     }
 
-    private static func open(
-        _ url: URL,
-        forwardingFramesTo frames: AsyncStream<Frame>.Continuation
-    ) async throws -> WebSocket {
+    private struct MessageRouter: Sendable {
+        let logger: Logger
+        let broadcaster: EventBroadcaster<Event>
+        let frames: AsyncStream<Frame>.Continuation
+
+        func route(_ text: String) {
+            logger.trace("Received WebSocket message", metadata: ["message": "\(text)"])
+            let event = Event(text: text)
+            switch event {
+            case .login, .loginFailed:
+                frames.yield(.sessionEvent(event))
+                return
+            case .filterSet:
+                logger.debug("Personal filter set")
+            case .filterFailed(let response):
+                logger.error("Personal filter rejected", metadata: ["response": "\(response)"])
+            case .subscribed(let channel, _):
+                logger.debug("Subscribed", metadata: ["channel": "\(channel)"])
+            case .unsubscribed(let channel, _):
+                logger.debug("Unsubscribed", metadata: ["channel": "\(channel)"])
+            case .error(let error):
+                logger.error("WebSocket error", metadata: ["error": "\(error.localizedDescription)"])
+            default:
+                break
+            }
+            broadcaster.yield(event)
+        }
+    }
+
+    private static func open(_ url: URL, routingTo router: MessageRouter) async throws -> WebSocket {
         try await withCheckedThrowingContinuation { continuation in
             WebSocket.connect(to: url, on: MultiThreadedEventLoopGroup.singleton) { socket in
                 socket.onText { _, text in
-                    frames.yield(.text(text))
+                    router.route(text)
                 }
                 socket.onBinary { _, buffer in
-                    frames.yield(.text(String(buffer: buffer)))
+                    router.route(String(buffer: buffer))
                 }
                 socket.onClose.whenComplete { _ in
-                    frames.yield(.closed(code: socket.closeCode.map { Int(UInt16(webSocketErrorCode: $0)) }))
-                    frames.finish()
+                    router.frames.yield(.closed(code: socket.closeCode.map { Int(UInt16(webSocketErrorCode: $0)) }))
+                    router.frames.finish()
                 }
                 continuation.resume(returning: socket)
             }.whenFailure { error in
@@ -171,37 +198,18 @@ extension MexcFuturesWebSocket {
 
     private func handle(_ frame: Frame, from socket: WebSocket) {
         switch frame {
-        case .text(let text):
-            receive(text)
+        case .sessionEvent(let event):
+            if case .loginFailed(let response) = event {
+                isLoggedIn = false
+                logger.error("WebSocket login failed", metadata: ["response": "\(response)"])
+            } else {
+                isLoggedIn = true
+                logger.debug("WebSocket login succeeded")
+            }
+            broadcaster.yield(event)
         case .closed(let code):
             handleClose(of: socket, code: code)
         }
-    }
-
-    func receive(_ text: String) {
-        logger.trace("Received WebSocket message", metadata: ["message": "\(text)"])
-        let event = Event(text: text)
-        switch event {
-        case .login:
-            isLoggedIn = true
-            logger.debug("WebSocket login succeeded")
-        case .loginFailed(let response):
-            isLoggedIn = false
-            logger.error("WebSocket login failed", metadata: ["response": "\(response)"])
-        case .filterSet:
-            logger.debug("Personal filter set")
-        case .filterFailed(let response):
-            logger.error("Personal filter rejected", metadata: ["response": "\(response)"])
-        case .subscribed(let channel, _):
-            logger.debug("Subscribed", metadata: ["channel": "\(channel)"])
-        case .unsubscribed(let channel, _):
-            logger.debug("Unsubscribed", metadata: ["channel": "\(channel)"])
-        case .error(let error):
-            logger.error("WebSocket error", metadata: ["error": "\(error.localizedDescription)"])
-        default:
-            break
-        }
-        broadcaster.yield(event)
     }
 
     private func handleClose(of socket: WebSocket, code: Int?) {
