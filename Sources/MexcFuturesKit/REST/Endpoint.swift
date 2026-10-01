@@ -1,0 +1,18 @@
+enum Endpoint: String {
+    case submitOrder = "private/order/submit"
+    case cancelOrder = "private/order/cancel"
+    case cancelOrderByExternalID = "private/order/cancel_with_external"
+    case cancelAllOrders = "private/order/cancel_all"
+    case orderHistory = "private/order/list/history_orders"
+    case orderDeals = "private/order/list/order_deals"
+    case order = "private/order/get"
+    case orderByExternalID = "private/order/external"
+    case riskLimit = "private/account/risk_limit"
+    case feeRate = "private/account/contract/fee_rate"
+    case accountAsset = "private/account/asset"
+    case openPositions = "private/position/open_positions"
+    case positionHistory = "private/position/list/history_positions"
+    case ticker = "contract/ticker"
+    case contractDetail = "contract/detail"
+    case contractDepth = "contract/depth"
+}

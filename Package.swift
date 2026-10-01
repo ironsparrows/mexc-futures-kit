@@ -50,6 +50,7 @@ let package = Package(
             dependencies: [
                 "MexcFuturesKit",
                 .product(name: "SwiftyJSON", package: "SwiftyJSON"),
+                .product(name: "Logging", package: "swift-log"),
             ],
             swiftSettings: swiftSettings,
         ),
