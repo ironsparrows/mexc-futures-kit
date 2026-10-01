@@ -165,6 +165,44 @@ struct ResultDecodingTests {
         #expect(reference == ExternalOrderReference(symbol: "BTC_USDT", externalOrderID: "client-1"))
     }
 
+    @Test func decodesAccountAssets() throws {
+        let assets = try decode(Fixtures.assets) { $0.map(AccountAsset.init(node:)) }.get()
+
+        #expect(assets.map(\.currency) == ["USDT", "BTC"])
+        #expect(assets[0].positionMargin == 2.31)
+        #expect(assets[0].availableBalance == 7.67)
+        #expect(assets[0].equity == 9.98)
+    }
+
+    @Test func decodesPositionLeverage() throws {
+        let leverage = try decode(Fixtures.leverage) { $0.map(PositionLeverage.init(node:)) }.get()
+
+        #expect(leverage == [
+            PositionLeverage(level: 6, maxVolume: 19_000_000, maintenanceMarginRate: 0.05, initialMarginRate: 0.1, positionType: .short, openType: .isolated, leverage: 2, isLimitedBySystem: false, currentMaintenanceMarginRate: 0.001, maxLeverage: 500),
+        ])
+    }
+
+    @Test func decodesOpenStopOrders() throws {
+        let orders = try decode(Fixtures.stopOrders) { $0.map(StopOrder.init(node:)) }.get()
+
+        #expect(orders.count == 1)
+        #expect(orders[0].id == 569857826)
+        #expect(orders[0].positionID == 1511503963)
+        #expect(orders[0].takeProfitPrice == 0.23)
+        #expect(orders[0].stopLossPrice == 0.17)
+        #expect(orders[0].state == .untriggered)
+    }
+
+    @Test func decodesOpenPlanOrders() throws {
+        let orders = try decode(Fixtures.planOrders) { $0.map(PlanOrder.init(node:)) }.get()
+
+        #expect(orders.count == 1)
+        #expect(orders[0].id == 860670920697239040)
+        #expect(orders[0].triggerPrice == 0.15)
+        #expect(orders[0].triggerDirection == .lessThanOrEqual)
+        #expect(orders[0].executeCycle == 87600)
+    }
+
     private func decode<Value>(
         _ text: String,
         sourceLocation: SourceLocation = #_sourceLocation,
@@ -224,5 +262,30 @@ private enum Fixtures {
 
     static let riskLimitsList = #"""
     {"success":true,"code":0,"data":[{"symbol":"BTC_USDT","level":1,"maxLeverage":125,"riskLimit":500000,"maintMarginRate":0.004}]}
+    """#
+
+    static let assets = #"""
+    {"success":true,"code":0,"data":[{"currency":"USDT","displayCurrency":"USDT","positionMargin":2.31,"availableBalance":7.67,"cashBalance":9.98,
+    "frozenBalance":0,"equity":9.98,"unrealized":0,"bonus":0,"availableCash":7.67,"availableOpen":7.67,"debtAmount":0,"contributeMarginAmount":0,
+    "vcoinId":"example"},{"currency":"BTC","displayCurrency":"BTC","positionMargin":0,"availableBalance":0,"cashBalance":0,"frozenBalance":0,
+    "equity":0,"unrealized":0,"bonus":0,"availableCash":0,"availableOpen":0,"debtAmount":0,"contributeMarginAmount":0,"vcoinId":"example"}]}
+    """#
+
+    static let leverage = #"""
+    {"success":true,"code":0,"data":[{"level":6,"maxVol":19000000,"mmr":0.05,"imr":0.1,"positionType":2,"openType":1,"leverage":2,
+    "limitBySys":false,"currentMmr":0.001,"maxLeverageView":500}]}
+    """#
+
+    static let stopOrders = #"""
+    {"success":true,"code":0,"data":[{"id":569857826,"orderId":"0","symbol":"ARB_USDT","positionId":"1511503963","lossTrend":1,"profitTrend":1,
+    "stopLossPrice":0.17,"takeProfitPrice":0.23,"state":1,"triggerSide":0,"positionType":1,"vol":0,"realityVol":0,"errorCode":0,"version":1,
+    "isFinished":0,"priceProtect":0,"profitLossVolType":"SAME","takeProfitVol":0,"stopLossVol":0,"createTime":1700000000000,
+    "updateTime":1700000001000,"volType":2,"takeProfitReverse":2,"stopLossReverse":2}]}
+    """#
+
+    static let planOrders = #"""
+    {"success":true,"code":0,"data":[{"id":"860670920697239040","symbol":"ARB_USDT","leverage":2,"side":1,"triggerPrice":0.15,"vol":66,
+    "openType":1,"triggerType":2,"state":1,"executeCycle":87600,"trend":1,"orderType":5,"errorCode":0,"priceProtect":0,
+    "createTime":1700000000000,"updateTime":1700000000000,"positionMode":1,"lossTrend":1,"profitTrend":1,"reduceOnly":false}]}
     """#
 }

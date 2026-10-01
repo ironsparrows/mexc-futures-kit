@@ -129,6 +129,7 @@ case .failure(let error):
 | `cancelOrders(_:)` | `[CancelOrderResult]` | `POST /private/order/cancel` (up to 50 orders) |
 | `cancelOrder(symbol:externalOrderID:)` | `ExternalOrderReference` | `POST /private/order/cancel_with_external` |
 | `cancelAllOrders(symbol:)` | `Void` | `POST /private/order/cancel_all` |
+| `openOrders(symbol:pageNumber:pageSize:)` | `[Order]` | `GET /private/order/list/open_orders/{symbol}` |
 | `orderHistory(_:)` | `[Order]` | `GET /private/order/list/history_orders` |
 | `orderDeals(_:)` | `[OrderDeal]` | `GET /private/order/list/order_deals` |
 | `order(id:)` | `Order` | `GET /private/order/get/{id}` |
@@ -136,8 +137,21 @@ case .failure(let error):
 | `riskLimits()` | `[RiskLimit]` | `GET /private/account/risk_limit` |
 | `feeRates()` | `[FeeRate]` | `GET /private/account/contract/fee_rate` |
 | `accountAsset(currency:)` | `AccountAsset` | `GET /private/account/asset/{currency}` |
+| `accountAssets()` | `[AccountAsset]` | `GET /private/account/assets` |
 | `openPositions(symbol:)` | `[Position]` | `GET /private/position/open_positions` |
 | `positionHistory(_:)` | `[Position]` | `GET /private/position/list/history_positions` |
+| `leverage(symbol:)` | `[PositionLeverage]` | `GET /private/position/leverage` |
+| `changeLeverage(_:symbol:positionType:openType:)` | `Void` | `POST /private/position/change_leverage` |
+| `addMargin(_:positionID:)`, `removeMargin(_:positionID:)` | `Void` | `POST /private/position/change_margin` |
+| `placeStopOrder(positionID:takeProfitPrice:stopLossPrice:priceType:)` | `Int64`, the TP/SL order ID | `POST /private/stoporder/place/v2` |
+| `changeStopOrder(id:takeProfitPrice:stopLossPrice:priceType:)` | `Void` | `POST /private/stoporder/change_plan_price` |
+| `cancelStopOrders(ids:)` | `Void` | `POST /private/stoporder/cancel` |
+| `cancelAllStopOrders(symbol:)` | `Void` | `POST /private/stoporder/cancel_all` |
+| `openStopOrders(symbol:)` | `[StopOrder]` | `GET /private/stoporder/open_orders` |
+| `placePlanOrder(_:)` | `Int64`, the trigger order ID | `POST /private/planorder/place/v2` |
+| `cancelPlanOrders(ids:symbol:)` | `Void` | `POST /private/planorder/cancel` |
+| `cancelAllPlanOrders(symbol:)` | `Void` | `POST /private/planorder/cancel_all` |
+| `openPlanOrders(symbol:pageNumber:pageSize:)` | `[PlanOrder]` | `GET /private/planorder/list/orders` |
 
 Code fields such as `side`, `state` and `orderType` are enums. They are `nil` when MEXC sends a value this SDK does not know yet.
 
@@ -168,6 +182,35 @@ let closeOrder = SubmitOrderRequest(
 ```
 
 Before signing, the account client validates the order. An invalid order throws `MexcFuturesError.validation`. The order is not sent.
+
+### Leverage, margin, TP/SL and trigger orders
+
+```swift
+try await account.changeLeverage(2, symbol: "BTC_USDT", positionType: .long, openType: .isolated).get()
+try await account.addMargin(1, positionID: position.positionID).get()
+
+let stopOrderID = try await account.placeStopOrder(
+    positionID: position.positionID,
+    takeProfitPrice: 90000,
+    stopLossPrice: 80000
+).get()
+try await account.changeStopOrder(id: stopOrderID, takeProfitPrice: 92000, stopLossPrice: 81000).get()
+
+let planOrderID = try await account.placePlanOrder(
+    PlanOrderRequest(
+        symbol: "BTC_USDT",
+        side: .openLong,
+        volume: 1,
+        openType: .isolated,
+        leverage: 2,
+        triggerPrice: 78000,
+        triggerDirection: .lessThanOrEqual
+    )
+).get()
+try await account.cancelPlanOrders(ids: [planOrderID], symbol: "BTC_USDT").get()
+```
+
+A TP/SL order covers the whole position. A trigger order places a market order by default; set `orderType` to `.limit` and `price` to place a limit order instead.
 
 ## WebSocket client
 
