@@ -9,7 +9,8 @@ A Swift SDK for MEXC Futures trading, with a REST client and a WebSocket client.
 
 - **REST client.** Submit, cancel and query orders. Read positions, balances, fees, risk limits and market data.
 - **WebSocket client.** Stream market data and private account updates as typed events over `AsyncStream`.
-- **Raw JSON responses.** Every response is a [SwiftyJSON](https://github.com/SwiftyJSON/SwiftyJSON) `JSON` value. Your code parses the fields it needs.
+- **Raw JSON responses.** Every response and event carries a `JSON` value. It keeps the original text and decodes only the fields you read.
+- **Fast.** On the same MEXC traffic, the WebSocket client delivers data with lower latency and less CPU than the TypeScript SDK. See [Performance](#performance).
 - **Swift concurrency.** `async`/`await` throughout, a `Sendable` client, an actor-based socket and typed throws with `MexcFuturesError`.
 - **Auto-reconnect.** The socket sends keep-alive pings and reconnects after the connection drops.
 
@@ -31,13 +32,10 @@ targets: [
         name: "MyApp",
         dependencies: [
             .product(name: "MexcFuturesKit", package: "mexc-futures-kit"),
-            .product(name: "SwiftyJSON", package: "SwiftyJSON"),
         ]
     ),
 ]
 ```
-
-MexcFuturesKit uses the `master` branch of SwiftyJSON, because only that branch makes `JSON` `Sendable`. SwiftPM does not let a version-based dependency rely on a branch. So you must also add MexcFuturesKit by branch or revision.
 
 ## Authentication
 
@@ -66,7 +64,6 @@ Market data needs no credentials, on REST or on the WebSocket. Only account data
 
 ```swift
 import MexcFuturesKit
-import SwiftyJSON
 
 let client = MexcFuturesClient()
 let ticker = try await client.ticker(symbol: "BTC_USDT")
@@ -192,6 +189,18 @@ A rejected login throws `MexcFuturesError.authentication`. Account methods throw
 
 Each call to `events()` returns a new stream, and every stream receives every event.
 
+### Lowest latency: `onEvent`
+
+`onEvent(_:)` calls a handler on the network thread as each message arrives. Nothing is handed off to another task, so this is the fastest way to consume the socket. Calls never overlap. Keep the handler short, because the socket handles no further messages until it returns.
+
+```swift
+socket.onEvent { event in
+    if case .depth(let depth) = event {
+        print("Best ask:", depth["asks"][0][0].doubleValue)
+    }
+}
+```
+
 ### Reconnecting
 
 With `autoReconnect` on (the default), the socket reconnects after the connection drops. Then it restores the session: it logs in again with the same keys, re-applies the last personal filter and re-subscribes to every active market stream. After that it delivers `connected`. `disconnect()` closes the connection and forgets the login and the subscriptions.
@@ -237,6 +246,30 @@ When you receive every depth change, keep your own order book. Start from a `con
 | `orderUpdate`, `orderDeal`, `positionUpdate`, `assetUpdate`, `stopOrder`, `stopPlanOrder`, `liquidateRisk`, `adlLevel`, `riskLimit`, `planOrder` | Private account data |
 | `error` | A connection, server or malformed-message error |
 | `message` | A message on any other channel |
+
+## JSON
+
+Responses and events carry a `JSON` value. It keeps the original JSON text and decodes only the fields you read, so unused fields cost nothing:
+
+```swift
+let price = ticker["data"]["lastPrice"].doubleValue
+let orderID = order["data"].int64Value
+let bids = depth["bids"].arrayValue
+```
+
+Optional accessors (`string`, `int64`, `double`, `bool`, `array`, `dictionary`) return `nil` for a missing value or a value of another type. Non-optional accessors (`stringValue`, `int64Value`, …) return an empty or zero value. Integers keep full 64-bit precision, so order IDs such as `817027833053397504` stay exact. `rawData()` returns the original JSON text, ready for `JSONDecoder` if you prefer your own `Codable` models.
+
+## Performance
+
+The WebSocket client was measured against the [TypeScript SDK](https://github.com/oboshto/mexc-futures-sdk) on real MEXC depth traffic. Both clients received the same captured messages from a local server on one Mac, in release builds. Latency runs from the server's send to the handler.
+
+| | TypeScript SDK | `onEvent` | `events()` stream |
+| --- | --- | --- | --- |
+| Latency at 3,440 msg/s (live MEXC rate), p50 / p99 | 0.09 / 0.22 ms | 0.07 / 0.17 ms | 0.09 / 0.20 ms |
+| CPU at 3,440 msg/s | 5% of one core | 3–4% of one core | 7% of one core |
+| CPU per message at full load | 2.1 µs | 1.8 µs | 3.3 µs |
+
+At full load both SDKs received about 480,000 msg/s, which was the limit of the replay server.
 
 ## Error handling
 
