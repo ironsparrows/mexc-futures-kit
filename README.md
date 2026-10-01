@@ -287,6 +287,28 @@ Optional accessors (`string`, `int64`, `double`, `bool`, `array`, `dictionary`) 
 
 ## Performance
 
+### Why yyjson
+
+MexcFuturesKit parses JSON with [yyjson](https://github.com/ibireme/yyjson), a JSON library written in C, instead of Foundation.
+
+- **Foundation does more work per value.** `JSONSerialization` creates an `NSDictionary`, `NSArray`, `NSString` or `NSNumber` for every value. `JSONDecoder` adds a `Codable` container and a key lookup for every field.
+- **yyjson builds no intermediate objects.** It parses into one block of C memory. The SDK reads each field straight from that block into the model, then frees the block as soon as the model is built.
+- **Fields are read in the order MEXC sends them,** so finding the next field takes one step instead of a search through the whole object.
+
+### REST decoding
+
+Measured on one Mac with release builds and real MEXC payloads: a ticker (588 bytes), an order book with 20 levels per side (772 bytes), and every contract (1,207 contracts, 2.3 MB). The numbers are the median of 3 runs. The Foundation `Codable` structs have the same fields as the SDK models. The TypeScript SDK only runs `JSON.parse`, because its types exist only at compile time.
+
+| | Foundation `JSONDecoder` | Foundation `JSONSerialization` | TypeScript SDK | **MexcFuturesKit** |
+| --- | --- | --- | --- | --- |
+| `Ticker` | 6.26 µs | 6.75 µs | 0.97 µs | **0.45 µs** |
+| `ContractDepth`, 20 levels per side | 27.5 µs | 8.1 µs | 1.98 µs | **1.07 µs** |
+| `[ContractDetail]`, 1,207 contracts | 14.5 ms | 12.0 ms | 2.81 ms | **1.37 ms** |
+
+Against Foundation's `JSONDecoder`, MexcFuturesKit decodes a ticker 14× faster, an order book 26× faster and the contract list 10× faster. It is about 2× faster than the TypeScript SDK on all three.
+
+### WebSocket
+
 The WebSocket client was measured against the [TypeScript SDK](https://github.com/oboshto/mexc-futures-sdk) on real MEXC depth traffic. Both clients received the same captured messages from a local server on one Mac, in release builds. Latency runs from the server's send to the handler.
 
 | | TypeScript SDK | `onEvent` | `events()` stream |
@@ -294,16 +316,17 @@ The WebSocket client was measured against the [TypeScript SDK](https://github.co
 | Latency at 3,440 msg/s (live MEXC rate), p50 / p99 | 0.09 / 0.22 ms | 0.07 / 0.17 ms | 0.09 / 0.20 ms |
 | CPU at 3,440 msg/s | 5% of one core | 3–4% of one core | 7% of one core |
 | CPU per message at full load | 2.1 µs | 1.8 µs | 3.3 µs |
+| Peak memory | 74 MB | 14 MB | 14 MB |
 
 At full load both SDKs received about 480,000 msg/s, which was the limit of the replay server.
 
-REST responses were measured on real MEXC payloads. The TypeScript SDK only runs `JSON.parse`, because its types exist only at compile time. The Swift SDK parses and builds every typed model.
+### Why speed matters
 
-| | TypeScript SDK | Swift typed models |
-| --- | --- | --- |
-| `Ticker` | 0.94 µs | 0.49 µs |
-| `ContractDepth`, 20 levels per side | 1.96 µs | 1.11 µs |
-| `[ContractDetail]`, 1,207 contracts | 2.83 ms | 1.34 ms |
+- **Reaction time.** Decoding happens before your code sees a price. Every microsecond spent decoding is added to the time it takes to react to the market.
+- **Bursts.** Ten liquid contracts pushed about 3,440 depth updates per second in normal trading, and volatile markets push several times more. Decoding cost decides whether a client keeps up or falls behind and queues stale prices.
+- **More markets per machine.** Less CPU per message leaves room for more symbols, more connections and the strategy itself.
+- **Apps.** Decoding the contract list with `JSONDecoder` takes 14.5 ms, nearly a whole 60 Hz frame (16.7 ms). MexcFuturesKit takes 1.4 ms. On iPhone, less CPU also means less battery and heat.
+- **Memory.** The parsed JSON is freed right after decoding, so a running socket stays around 14 MB.
 
 ## Error handling
 
