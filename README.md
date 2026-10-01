@@ -291,29 +291,27 @@ Optional accessors (`string`, `int64`, `double`, `bool`, `array`, `dictionary`) 
 
 MexcFuturesKit parses JSON with [yyjson](https://github.com/ibireme/yyjson), a JSON library written in C, instead of Foundation.
 
-- **Foundation does more work per value.** `JSONSerialization` creates an `NSDictionary`, `NSArray`, `NSString` or `NSNumber` for every value. `JSONDecoder` adds a `Codable` container and a key lookup for every field.
+- **`JSONDecoder` does more work per field.** Every field goes through a `Codable` container and a key lookup before its value reaches your struct.
 - **yyjson builds no intermediate objects.** It parses into one block of C memory. The SDK reads each field straight from that block into the model, then frees the block as soon as the model is built.
 - **Fields are read in the order MEXC sends them,** so finding the next field takes one step instead of a search through the whole object.
 
 ### REST decoding
 
-Measured on one Mac with release builds and real MEXC payloads: a ticker (588 bytes), an order book with 20 levels per side (772 bytes), and every contract (1,207 contracts, 2.3 MB). The numbers are the median of 3 runs. The Foundation `Codable` structs have the same fields as the SDK models.
+Measured on one Mac with release builds and real MEXC payloads: a ticker (588 bytes), an order book with 20 levels per side (772 bytes), and every contract (1,207 contracts, 2.3 MB). The numbers are the median of 3 runs. The `Codable` structs given to `JSONDecoder` have the same fields as the SDK models.
 
-| | Foundation `JSONDecoder` | Foundation `JSONSerialization` | **MexcFuturesKit** |
-| --- | --- | --- | --- |
-| `Ticker` | 6.26 µs | 6.75 µs | **0.45 µs** (14× faster) |
-| `ContractDepth`, 20 levels per side | 27.5 µs | 8.1 µs | **1.07 µs** (26× faster) |
-| `[ContractDetail]`, 1,207 contracts | 14.5 ms | 12.0 ms | **1.37 ms** (10× faster) |
-
-The speedups compare MexcFuturesKit with `JSONDecoder`.
+| | Foundation `JSONDecoder` | **MexcFuturesKit** |
+| --- | --- | --- |
+| `Ticker` | 6.26 µs | **0.45 µs** (14× faster) |
+| `ContractDepth`, 20 levels per side | 27.5 µs | **1.07 µs** (26× faster) |
+| `[ContractDetail]`, 1,207 contracts | 14.5 ms | **1.37 ms** (10× faster) |
 
 ### WebSocket
 
 Decoding one real MEXC depth update, which is the most frequent message on a market data connection (median of 3 runs):
 
-| | Foundation `JSONDecoder` | Foundation `JSONSerialization` | **MexcFuturesKit** |
-| --- | --- | --- | --- |
-| One depth update | 2.92 µs | 2.75 µs | **0.21 µs** (14× faster) |
+| | Foundation `JSONDecoder` | **MexcFuturesKit** |
+| --- | --- | --- |
+| One depth update | 2.92 µs | **0.21 µs** (14× faster) |
 
 The whole client was also measured end to end. A local server replayed captured MEXC depth traffic to it on one Mac, in a release build. Latency runs from the server's send to your handler.
 
