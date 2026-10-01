@@ -9,7 +9,7 @@ struct MexcFuturesClientRequestTests {
         case ticker, contractDetail, contractDepth
 
         var expectedURL: String {
-            let base = "https://futures.mexc.com/api/v1/"
+            let base = "https://www.mexc.com/api/platform/futures/api/v1/"
             return switch self {
             case .ticker: base + "contract/ticker?symbol=BTC_USDT"
             case .contractDetail: base + "contract/detail"
@@ -31,7 +31,7 @@ struct MexcFuturesClientRequestTests {
         case openPositions, positionHistory
 
         var expectedURL: String {
-            let base = "https://futures.mexc.com/api/v1/"
+            let base = "https://www.mexc.com/api/platform/futures/api/v1/"
             return switch self {
             case .orderHistory: base + "private/order/list/history_orders?page_num=1&page_size=20&symbol=BTC_USDT"
             case .orderDeals: base + "private/order/list/order_deals?symbol=BTC_USDT&page_num=1&page_size=20"
@@ -138,7 +138,7 @@ struct MexcFuturesClientSignedRequestTests {
         let body = String(decoding: try #require(request.httpBody), as: UTF8.self)
         let nonce = try #require(request.value(forHTTPHeaderField: "x-mxc-nonce"))
         #expect(request.httpMethod == "POST")
-        #expect(request.url?.absoluteString == "https://futures.mexc.com/api/v1/private/order/submit")
+        #expect(request.url?.absoluteString == "https://www.mexc.com/api/platform/futures/api/v1/private/order/submit")
         #expect(body == #"{"openType":1,"price":50000,"side":1,"symbol":"BTC_USDT","type":5,"vol":1}"#)
         #expect(request.value(forHTTPHeaderField: "x-mxc-sign") == RequestSignature(body: body, authToken: "WEB-token", timestamp: nonce).sign)
         #expect(orderID == 817027833053397504)
@@ -160,7 +160,7 @@ struct MexcFuturesClientSignedRequestTests {
         try await MexcFuturesClient.Account.stubbed(transport).cancelOrders([817027833053397504, 1])
 
         let request = try #require(transport.requests.first)
-        #expect(request.url?.absoluteString == "https://futures.mexc.com/api/v1/private/order/cancel")
+        #expect(request.url?.absoluteString == "https://www.mexc.com/api/platform/futures/api/v1/private/order/cancel")
         #expect(request.httpBody == Data(#"["817027833053397504","1"]"#.utf8))
     }
 
@@ -181,7 +181,7 @@ struct MexcFuturesClientSignedRequestTests {
         try await MexcFuturesClient.Account.stubbed(transport).cancelOrder(symbol: "BTC_USDT", externalOrderID: "client-1")
 
         let request = try #require(transport.requests.first)
-        #expect(request.url?.absoluteString == "https://futures.mexc.com/api/v1/private/order/cancel_with_external")
+        #expect(request.url?.absoluteString == "https://www.mexc.com/api/platform/futures/api/v1/private/order/cancel_with_external")
         #expect(request.httpBody == Data(#"{"externalOid":"client-1","symbol":"BTC_USDT"}"#.utf8))
     }
 
@@ -195,7 +195,7 @@ struct MexcFuturesClientSignedRequestTests {
         try await MexcFuturesClient.Account.stubbed(transport).cancelAllOrders(symbol: symbol)
 
         let request = try #require(transport.requests.first)
-        #expect(request.url?.absoluteString == "https://futures.mexc.com/api/v1/private/order/cancel_all")
+        #expect(request.url?.absoluteString == "https://www.mexc.com/api/platform/futures/api/v1/private/order/cancel_all")
         #expect(request.httpBody == Data(expectedBody.utf8))
         #expect(request.value(forHTTPHeaderField: "x-mxc-sign") != nil)
     }
@@ -316,6 +316,6 @@ struct MexcFuturesClientResponseTests {
         let result = await MexcFuturesClient.stubbed(transport).testConnection()
 
         #expect(result == isReachable)
-        #expect(transport.requests.first?.url?.absoluteString == "https://futures.mexc.com/api/v1/contract/ticker?symbol=BTC_USDT")
+        #expect(transport.requests.first?.url?.absoluteString == "https://www.mexc.com/api/platform/futures/api/v1/contract/ticker?symbol=BTC_USDT")
     }
 }

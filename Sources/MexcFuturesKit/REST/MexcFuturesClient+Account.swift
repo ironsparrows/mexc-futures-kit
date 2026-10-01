@@ -96,10 +96,10 @@ extension MexcFuturesClient.Account {
     /// Returns the order with an identifier.
     ///
     /// - Parameter id: The identifier of the order.
-    /// - Returns: The order, or MEXC's rejection.
-    public func order(id: Int64) async throws(MexcFuturesError) -> Result<Order, MexcFuturesError> {
+    /// - Returns: The order, `nil` when MEXC has no such order, or MEXC's rejection.
+    public func order(id: Int64) async throws(MexcFuturesError) -> Result<Order?, MexcFuturesError> {
         try await client.get(.order, authToken: authToken, pathComponents: [String(id)])
-            .decode { Result(response: $0) { $0.object(Order.init(node:)) } }
+            .decode { Result(response: $0) { .some($0.object(Order.init(node:))) } }
     }
 
     /// Returns the order with a client-assigned identifier.
@@ -107,10 +107,10 @@ extension MexcFuturesClient.Account {
     /// - Parameters:
     ///   - symbol: The contract symbol of the order.
     ///   - externalOrderID: The client-assigned identifier of the order.
-    /// - Returns: The order, or MEXC's rejection.
-    public func order(symbol: String, externalOrderID: String) async throws(MexcFuturesError) -> Result<Order, MexcFuturesError> {
+    /// - Returns: The order, `nil` when MEXC has no such order, or MEXC's rejection.
+    public func order(symbol: String, externalOrderID: String) async throws(MexcFuturesError) -> Result<Order?, MexcFuturesError> {
         try await client.get(.orderByExternalID, authToken: authToken, pathComponents: [symbol, externalOrderID])
-            .decode { Result(response: $0) { $0.object(Order.init(node:)) } }
+            .decode { Result(response: $0) { .some($0.object(Order.init(node:))) } }
     }
 
     /// Returns the risk limits of the account.

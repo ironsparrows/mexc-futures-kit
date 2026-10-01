@@ -17,7 +17,7 @@ extension MexcFuturesClient {
 
         /// Creates the settings of a ``MexcFuturesClient``.
         public init(
-            baseURL: URL = URL(string: "https://futures.mexc.com/api/v1")!,
+            baseURL: URL = URL(string: "https://www.mexc.com/api/platform/futures/api/v1")!,
             timeout: Duration = .seconds(30),
             userAgent: String? = nil,
             customHeaders: [String: String] = [:]

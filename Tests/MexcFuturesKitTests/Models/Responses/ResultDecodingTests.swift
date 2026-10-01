@@ -83,6 +83,13 @@ struct ResultDecodingTests {
         #expect(order.externalOrderID == "client-1")
         #expect(order.createTime == Date(timeIntervalSince1970: 1_700_000_000))
         #expect(order.stopLossPrice == nil)
+        #expect(order.positionMode == .hedge)
+    }
+
+    @Test func unknownOrderDecodesAsNil() throws {
+        let order = try decode(#"{"success":true,"code":0}"#) { .some($0.object(Order.init(node:))) }.get()
+
+        #expect(order == nil)
     }
 
     @Test func unknownCodeDecodesAsNil() throws {
@@ -99,8 +106,10 @@ struct ResultDecodingTests {
         #expect(deals[0].orderID == 817027833053397504)
         #expect(deals[0].volume == 1)
         #expect(deals[0].price == 50000)
+        #expect(deals[0].id == 991)
         #expect(deals[0].isTaker)
         #expect(deals[0].side == .closeLong)
+        #expect(deals[0].positionMode == .hedge)
     }
 
     @Test func decodesPosition() throws {
@@ -187,15 +196,15 @@ private enum Fixtures {
     """#
 
     static let order = #"""
-    {"success":true,"code":0,"data":{"orderId":817027833053397504,"symbol":"BTC_USDT","positionId":12345,"price":50000.5,"vol":2,"leverage":10,
+    {"success":true,"code":0,"data":{"orderId":"817027833053397504","symbol":"BTC_USDT","positionId":12345,"price":50000.5,"priceStr":"50000.5","vol":2,"leverage":10,
     "side":1,"category":1,"orderType":1,"dealAvgPrice":50000.5,"dealVol":2,"orderMargin":10.01,"takerFee":0,"makerFee":0.02,"profit":0,
     "feeCurrency":"USDT","openType":1,"state":3,"externalOid":"client-1","errorCode":0,"usedMargin":10.01,"createTime":1700000000000,
-    "updateTime":1700000001000}}
+    "updateTime":1700000001000,"positionMode":1,"version":2,"takerFeeRate":0.0004,"makerFeeRate":0.0001}}
     """#
 
     static let deals = #"""
-    {"success":true,"code":0,"data":[{"id":991,"symbol":"BTC_USDT","side":4,"vol":1,"price":50000,"fee":0.01,"feeCurrency":"USDT","profit":2.5,
-    "isTaker":true,"category":1,"orderId":817027833053397504,"timestamp":1700000002000}]}
+    {"success":true,"code":0,"data":[{"id":"991","symbol":"BTC_USDT","side":4,"vol":1,"price":50000,"fee":0.01,"feeCurrency":"USDT","profit":2.5,
+    "category":1,"orderId":"817027833053397504","timestamp":1700000002000,"positionMode":1,"taker":true}]}
     """#
 
     static let positions = #"""

@@ -76,6 +76,9 @@ public struct Order: Sendable, Hashable {
 
     /// The take-profit trigger price.
     public var takeProfitPrice: Double?
+
+    /// The position mode the order was placed in, or `nil` when MEXC does not report a known mode.
+    public var positionMode: PositionMode?
 }
 
 extension Order {
@@ -105,8 +108,9 @@ extension Order {
             usedMargin: field("usedMargin").doubleValue,
             createTime: field("createTime").dateValue,
             updateTime: field("updateTime").dateValue,
-            stopLossPrice: field("stopLossPrice").double,
-            takeProfitPrice: field("takeProfitPrice").double
+            stopLossPrice: node["stopLossPrice"].double,
+            takeProfitPrice: node["takeProfitPrice"].double,
+            positionMode: field("positionMode").int.flatMap(PositionMode.init(rawValue:))
         )
     }
 }

@@ -37,6 +37,9 @@ public struct OrderDeal: Sendable, Hashable {
 
     /// The time of the execution.
     public var timestamp: Date
+
+    /// The position mode the execution was made in, or `nil` when MEXC does not report a known mode.
+    public var positionMode: PositionMode?
 }
 
 extension OrderDeal {
@@ -51,10 +54,11 @@ extension OrderDeal {
             fee: field("fee").doubleValue,
             feeCurrency: field("feeCurrency").stringValue,
             profit: field("profit").doubleValue,
-            isTaker: field("isTaker").boolValue,
+            isTaker: (node["taker"].bool ?? node["isTaker"].bool) ?? false,
             category: field("category").int.flatMap(OrderCategory.init(rawValue:)),
             orderID: field("orderId").int64Value,
-            timestamp: field("timestamp").dateValue
+            timestamp: field("timestamp").dateValue,
+            positionMode: field("positionMode").int.flatMap(PositionMode.init(rawValue:))
         )
     }
 }
