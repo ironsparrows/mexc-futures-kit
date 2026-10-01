@@ -1,7 +1,9 @@
 extension MexcFuturesWebSocket {
     /// Subscribes to the tickers of every contract.
-    public func subscribeToAllTickers() async throws(MexcFuturesError) {
-        try await subscribe(to: "tickers")
+    ///
+    /// - Parameter gzip: Whether the server compresses the pushed data.
+    public func subscribeToAllTickers(gzip: Bool = false) async throws(MexcFuturesError) {
+        try await subscribe(to: "tickers", gzip: gzip)
     }
 
     /// Unsubscribes from the tickers of every contract.
@@ -39,16 +41,11 @@ extension MexcFuturesWebSocket {
 
     /// Subscribes to incremental order book updates of a contract.
     ///
-    /// Without merging, MEXC pushes every change. Keep your own order book from a
-    /// ``MexcFuturesClient/contractDepth(symbol:limit:)`` snapshot, apply the changes in `version` order,
-    /// and reload the snapshot when a version is missing.
-    ///
     /// - Parameters:
     ///   - symbol: The contract symbol, such as `BTC_USDT`.
-    ///   - merged: Whether MEXC merges changes and pushes them about every 200 ms,
-    ///     instead of pushing every change.
-    public func subscribeToDepth(symbol: String, merged: Bool = false) async throws(MexcFuturesError) {
-        try await subscribe(to: "depth", symbol: symbol, parameters: ["compress": merged])
+    ///   - compress: Whether the server merges updates before pushing them.
+    public func subscribeToDepth(symbol: String, compress: Bool = false) async throws(MexcFuturesError) {
+        try await subscribe(to: "depth", symbol: symbol, parameters: ["compress": compress])
     }
 
     /// Unsubscribes from incremental order book updates of a contract.

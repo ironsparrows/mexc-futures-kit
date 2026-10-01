@@ -25,13 +25,17 @@ extension MexcFuturesWebSocket {
         to channel: String,
         symbol: String? = nil,
         parameters: [String: Any] = [:],
-        variant: String? = nil
+        variant: String? = nil,
+        gzip: Bool? = nil
     ) async throws(MexcFuturesError) {
         var parameters = parameters
         if let symbol {
             parameters["symbol"] = symbol
         }
-        let message: JSON = ["method": "sub.\(channel)", "param": parameters, "gzip": configuration.gzipPayloads]
+        var message: JSON = ["method": "sub.\(channel)", "param": parameters]
+        if let gzip {
+            message["gzip"] = JSON(gzip)
+        }
         try await send(message)
         session.subscriptions[MarketSubscription(channel: channel, symbol: symbol, variant: variant)] = message
     }
