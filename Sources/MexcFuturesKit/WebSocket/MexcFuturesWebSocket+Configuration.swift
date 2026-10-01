@@ -2,6 +2,19 @@ public import Foundation
 
 extension MexcFuturesWebSocket {
     /// The settings of a ``MexcFuturesWebSocket``.
+    ///
+    /// ## Compression
+    ///
+    /// Compression is off by default. MEXC pushes small, frequent messages, so decompressing each
+    /// one costs more latency than it saves bandwidth.
+    ///
+    /// - Transport compression, the permessage-deflate extension of RFC 7692, is never used.
+    ///   WebSocketKit and SwiftNIO do not implement the extension, so the handshake never offers it
+    ///   and frames always arrive uncompressed.
+    /// - Payload gzip is requested only by ``MexcFuturesWebSocket/subscribeToAllTickers(gzip:)``,
+    ///   which asks for plain JSON by default.
+    /// - Order book merging is chosen per subscription with
+    ///   ``MexcFuturesWebSocket/subscribeToDepth(symbol:compress:)``, which asks for every change by default.
     public struct Configuration: Sendable {
         /// The URL of the futures WebSocket API.
         public var url: URL
