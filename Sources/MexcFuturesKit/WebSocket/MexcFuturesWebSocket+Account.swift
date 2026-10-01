@@ -73,15 +73,22 @@ extension MexcFuturesWebSocket {
     /// - Throws: ``MexcFuturesError/authentication(message:)`` when the server rejects the login.
     @discardableResult
     public func login(apiKey: String, secretKey: String, subscribe: Bool = true) async throws(MexcFuturesError) -> Account {
+        let credentials = Credentials(apiKey: apiKey, secretKey: secretKey, subscribe: subscribe)
+        try await authenticate(credentials)
+        session.credentials = credentials
+        return Account(socket: self)
+    }
+
+    func authenticate(_ credentials: Credentials) async throws(MexcFuturesError) {
         guard isConnected else { throw .notConnected }
         let responses = events()
         let requestTime = String(Date.now.millisecondsSince1970)
         try await send([
-            "subscribe": subscribe,
+            "subscribe": credentials.subscribe,
             "method": "login",
             "param": [
-                "apiKey": apiKey,
-                "signature": hmacSHA256(apiKey + requestTime, secret: secretKey),
+                "apiKey": credentials.apiKey,
+                "signature": hmacSHA256(credentials.apiKey + requestTime, secret: credentials.secretKey),
                 "reqTime": requestTime,
             ],
         ])
@@ -89,7 +96,7 @@ extension MexcFuturesWebSocket {
         for await event in responses {
             switch event {
             case .login:
-                return Account(socket: self)
+                return
             case .loginFailed(let response):
                 throw .authentication(message: response["msg"].string ?? response.string ?? response.rawString(options: []) ?? "Login rejected")
             case .disconnected:
@@ -104,5 +111,6 @@ extension MexcFuturesWebSocket {
     func setPersonalFilter(_ filters: [PersonalFilter]) async throws(MexcFuturesError) {
         guard isLoggedIn else { throw .notLoggedIn }
         try await send(["method": "personal.filter", "param": ["filters": filters.map(\.json)]])
+        session.personalFilters = filters
     }
 }

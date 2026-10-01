@@ -7,6 +7,9 @@ extension MexcFuturesWebSocket {
         public var url: URL
 
         /// Whether the socket reconnects after the connection drops.
+        ///
+        /// After reconnecting, the socket logs in again, re-applies the personal filter
+        /// and re-subscribes to market data.
         public var autoReconnect: Bool
 
         /// The delay before each reconnection attempt.

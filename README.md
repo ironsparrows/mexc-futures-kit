@@ -192,6 +192,10 @@ A rejected login throws `MexcFuturesError.authentication`. Account methods throw
 
 Each call to `events()` returns a new stream, and every stream receives every event.
 
+### Reconnecting
+
+With `autoReconnect` on (the default), the socket reconnects after the connection drops. Then it restores the session: it logs in again with the same keys, re-applies the last personal filter and re-subscribes to every active market stream. After that it delivers `connected`. `disconnect()` closes the connection and forgets the login and the subscriptions.
+
 ### Market data
 
 ```swift

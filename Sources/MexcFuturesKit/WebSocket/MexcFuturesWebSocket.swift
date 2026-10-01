@@ -36,8 +36,9 @@ public actor MexcFuturesWebSocket {
     /// Whether the session is logged in and receives private data.
     public private(set) var isLoggedIn = false
 
-    private let logger: Logger
-    private let broadcaster = EventBroadcaster<Event>()
+    let logger: Logger
+    let broadcaster = EventBroadcaster<Event>()
+    var session = Session()
     private var state = State.disconnected
     private var pingTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
@@ -80,6 +81,8 @@ public actor MexcFuturesWebSocket {
 
     /// Opens the connection.
     ///
+    /// When an earlier connection dropped, the socket first logs in again, re-applies the personal filter
+    /// and re-subscribes to market data, then delivers ``Event/connected``.
     /// Does nothing when the connection is already open or opening.
     public func connect() async throws(MexcFuturesError) {
         guard case .disconnected = state else { return }
@@ -106,16 +109,18 @@ public actor MexcFuturesWebSocket {
         logger.debug("WebSocket connected")
         receive(frames, from: socket)
         startPinging()
+        await restoreSession()
         broadcaster.yield(.connected)
     }
 
-    /// Closes the connection and cancels any pending reconnection.
+    /// Closes the connection, cancels any pending reconnection, and forgets the login and subscriptions.
     public func disconnect() async {
         logger.debug("Disconnecting from MEXC Futures WebSocket")
         reconnectTask?.cancel()
         reconnectTask = nil
         stopPinging()
         isLoggedIn = false
+        session = Session()
         let socket: WebSocket? = if case .connected(let socket) = state { socket } else { nil }
         state = .disconnected
         try? await socket?.close()

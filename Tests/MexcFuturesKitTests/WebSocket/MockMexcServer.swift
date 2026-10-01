@@ -95,6 +95,17 @@ final class MockMexcServer: Sendable {
         return nil
     }
 
+    func methods(until required: Set<String>) async -> [String] {
+        var seen: [String] = []
+        for await message in messages {
+            seen.append(message["method"].stringValue)
+            if required.isSubset(of: seen) {
+                break
+            }
+        }
+        return seen
+    }
+
     private func accept(_ socket: WebSocket) {
         state.withLock { $0.sockets.append(socket) }
         socket.onText { socket, text in
