@@ -132,7 +132,7 @@ struct MexcFuturesClientSignedRequestTests {
         let transport = StubTransport(body: #"{"success":true,"code":0,"data":817027833053397504}"#)
         let order = SubmitOrderRequest(symbol: "BTC_USDT", price: 50000, volume: 1, side: .openLong, type: .market, openType: .isolated)
 
-        let response = try await MexcFuturesClient.Account.stubbed(transport).submitOrder(order)
+        let orderID = try await MexcFuturesClient.Account.stubbed(transport).submitOrder(order).get()
 
         let request = try #require(transport.requests.first)
         let body = String(decoding: try #require(request.httpBody), as: UTF8.self)
@@ -141,7 +141,7 @@ struct MexcFuturesClientSignedRequestTests {
         #expect(request.url?.absoluteString == "https://futures.mexc.com/api/v1/private/order/submit")
         #expect(body == #"{"openType":1,"price":50000,"side":1,"symbol":"BTC_USDT","type":5,"vol":1}"#)
         #expect(request.value(forHTTPHeaderField: "x-mxc-sign") == RequestSignature(body: body, authToken: "WEB-token", timestamp: nonce).sign)
-        #expect(response.data == 817027833053397504)
+        #expect(orderID == 817027833053397504)
     }
 
     @Test func invalidOrderIsNotSent() async {
@@ -203,15 +203,17 @@ struct MexcFuturesClientSignedRequestTests {
 
 @Suite("MexcFuturesClient responses", .tags(.networking))
 struct MexcFuturesClientResponseTests {
-    @Test func returnsUnsuccessfulBodyWithoutThrowing() async throws {
+    @Test func rejectionReturnsFailureWithoutThrowing() async throws {
         let transport = StubTransport(body: #"{"success":false,"code":2005,"message":"Balance insufficient"}"#)
 
-        let response = try await MexcFuturesClient.stubbed(transport).ticker(symbol: "BTC_USDT")
+        let result = try await MexcFuturesClient.stubbed(transport).ticker(symbol: "BTC_USDT")
 
-        #expect(response.success == false)
-        #expect(response.code == 2005)
-        #expect(response.message == "Balance insufficient")
-        #expect(response.data == nil)
+        guard case .failure(.rejected(let code, let message)) = result else {
+            Issue.record("Expected a rejection, got \(result)")
+            return
+        }
+        #expect(code == 2005)
+        #expect(message == "Balance insufficient")
     }
 
     @Test func nonJSONBodyThrowsMalformedMessage() async throws {

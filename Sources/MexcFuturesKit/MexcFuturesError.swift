@@ -2,6 +2,13 @@ public import Foundation
 
 /// An error thrown by ``MexcFuturesClient`` and ``MexcFuturesWebSocket``.
 public enum MexcFuturesError: Error {
+    /// MEXC answered the request with `success: false`.
+    ///
+    /// - Parameters:
+    ///   - code: The MEXC error code.
+    ///   - message: The reason MEXC gave.
+    case rejected(code: Int, message: String)
+
     /// The server rejected the authorization token.
     case authentication(message: String)
 
@@ -51,6 +58,8 @@ public enum MexcFuturesError: Error {
 extension MexcFuturesError: LocalizedError {
     public var errorDescription: String? {
         switch self {
+        case .rejected(let code, let message):
+            "MEXC rejected the request (\(code)): \(message)"
         case .authentication(let message):
             "Authentication error: \(message)"
         case .signature:

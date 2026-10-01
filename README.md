@@ -9,7 +9,7 @@ A Swift SDK for MEXC Futures trading, with a REST client and a WebSocket client.
 
 - **REST client.** Submit, cancel and query orders. Read positions, balances, fees, risk limits and market data.
 - **WebSocket client.** Stream market data and private account updates as typed events over `AsyncStream`.
-- **Typed REST responses.** Every REST method returns a `Response` with typed models, such as `Ticker`, `Order` and `Position`. WebSocket events carry a `JSON` value that decodes only the fields you read.
+- **Typed REST results.** Every REST method returns a `Result` with typed models, such as `Ticker`, `Order` and `Position`, or MEXC's rejection. WebSocket events carry a `JSON` value that decodes only the fields you read.
 - **Fast.** On the same MEXC traffic, the WebSocket client delivers data with lower latency and less CPU than the TypeScript SDK. See [Performance](#performance).
 - **Swift concurrency.** `async`/`await` throughout, a `Sendable` client, an actor-based socket and typed throws with `MexcFuturesError`.
 - **Auto-reconnect.** The socket sends keep-alive pings and reconnects after the connection drops.
@@ -66,8 +66,8 @@ Market data needs no credentials, on REST or on the WebSocket. Only account data
 import MexcFuturesKit
 
 let client = MexcFuturesClient()
-let ticker = try await client.ticker(symbol: "BTC_USDT")
-print("BTC price:", ticker.data?.lastPrice ?? 0)
+let ticker = try await client.ticker(symbol: "BTC_USDT").get()
+print("BTC price:", ticker.lastPrice)
 
 let account = client.account(authToken: "WEB...")
 let order = try await account.submitOrder(
@@ -81,48 +81,61 @@ let order = try await account.submitOrder(
         leverage: 10
     )
 )
-print("Order ID:", order.data ?? 0)
+switch order {
+case .success(let orderID):
+    print("Order ID:", orderID)
+case .failure(let error):
+    print(error.localizedDescription)
+}
 ```
 
-Every method returns MEXC's whole response as a `Response`: `success`, `code`, `message` and the typed `data`. A response with `"success": false` is returned, not thrown. Check `success` before you read `data`:
+Every method returns a `Result`:
+
+- `.success` carries the typed data.
+- `.failure(.rejected(code:message:))` carries MEXC's error code and message when it answers `"success": false`.
+- Network, HTTP and signature failures are thrown, like every other `MexcFuturesError`.
+
+Call `get()` to turn a rejection into a thrown error, or switch on the result to handle it in place:
 
 ```swift
-let response = try await account.openPositions()
-guard response.success, let positions = response.data else {
-    print("Rejected:", response.code, response.message ?? "")
-    return
-}
-for position in positions {
-    print(position.symbol, position.holdVolume, position.liquidatePrice)
+switch try await account.openPositions() {
+case .success(let positions):
+    for position in positions {
+        print(position.symbol, position.holdVolume, position.liquidatePrice)
+    }
+case .failure(.rejected(let code, let message)):
+    print("MEXC rejected the request:", code, message)
+case .failure(let error):
+    print(error.localizedDescription)
 }
 ```
 
 ### Market data: `MexcFuturesClient`
 
-| Method | Returns | Endpoint |
+| Method | Success value | Endpoint |
 | --- | --- | --- |
-| `ticker(symbol:)` | `Response<Ticker>` | `GET /contract/ticker` |
-| `contractDetail(symbol:)` | `Response<[ContractDetail]>` | `GET /contract/detail` |
-| `contractDepth(symbol:limit:)` | `Response<ContractDepth>` | `GET /contract/depth/{symbol}` |
+| `ticker(symbol:)` | `Ticker` | `GET /contract/ticker` |
+| `contractDetail(symbol:)` | `[ContractDetail]` | `GET /contract/detail` |
+| `contractDepth(symbol:limit:)` | `ContractDepth` | `GET /contract/depth/{symbol}` |
 | `testConnection()` | `Bool` | Requests the `BTC_USDT` ticker and returns whether it succeeded |
 
 ### Account data and trading: `MexcFuturesClient.Account`
 
-| Method | Returns | Endpoint |
+| Method | Success value | Endpoint |
 | --- | --- | --- |
-| `submitOrder(_:)` | `Response<Int64>`, the order ID | `POST /private/order/submit` |
-| `cancelOrders(_:)` | `Response<[CancelOrderResult]>` | `POST /private/order/cancel` (up to 50 orders) |
-| `cancelOrder(symbol:externalOrderID:)` | `Response<ExternalOrderReference>` | `POST /private/order/cancel_with_external` |
-| `cancelAllOrders(symbol:)` | `Response<JSON>` | `POST /private/order/cancel_all` |
-| `orderHistory(_:)` | `Response<[Order]>` | `GET /private/order/list/history_orders` |
-| `orderDeals(_:)` | `Response<[OrderDeal]>` | `GET /private/order/list/order_deals` |
-| `order(id:)` | `Response<Order>` | `GET /private/order/get/{id}` |
-| `order(symbol:externalOrderID:)` | `Response<Order>` | `GET /private/order/external/{symbol}/{externalOid}` |
-| `riskLimits()` | `Response<[RiskLimit]>` | `GET /private/account/risk_limit` |
-| `feeRates()` | `Response<[FeeRate]>` | `GET /private/account/contract/fee_rate` |
-| `accountAsset(currency:)` | `Response<AccountAsset>` | `GET /private/account/asset/{currency}` |
-| `openPositions(symbol:)` | `Response<[Position]>` | `GET /private/position/open_positions` |
-| `positionHistory(_:)` | `Response<[Position]>` | `GET /private/position/list/history_positions` |
+| `submitOrder(_:)` | `Int64`, the order ID | `POST /private/order/submit` |
+| `cancelOrders(_:)` | `[CancelOrderResult]` | `POST /private/order/cancel` (up to 50 orders) |
+| `cancelOrder(symbol:externalOrderID:)` | `ExternalOrderReference` | `POST /private/order/cancel_with_external` |
+| `cancelAllOrders(symbol:)` | `Void` | `POST /private/order/cancel_all` |
+| `orderHistory(_:)` | `[Order]` | `GET /private/order/list/history_orders` |
+| `orderDeals(_:)` | `[OrderDeal]` | `GET /private/order/list/order_deals` |
+| `order(id:)` | `Order` | `GET /private/order/get/{id}` |
+| `order(symbol:externalOrderID:)` | `Order` | `GET /private/order/external/{symbol}/{externalOid}` |
+| `riskLimits()` | `[RiskLimit]` | `GET /private/account/risk_limit` |
+| `feeRates()` | `[FeeRate]` | `GET /private/account/contract/fee_rate` |
+| `accountAsset(currency:)` | `AccountAsset` | `GET /private/account/asset/{currency}` |
+| `openPositions(symbol:)` | `[Position]` | `GET /private/position/open_positions` |
+| `positionHistory(_:)` | `[Position]` | `GET /private/position/list/history_positions` |
 
 Code fields such as `side`, `state` and `orderType` are enums. They are `nil` when MEXC sends a value this SDK does not know yet.
 
@@ -262,7 +275,7 @@ When you receive every depth change, keep your own order book. Start from a `con
 
 ## JSON
 
-WebSocket events, API error bodies and `cancelAllOrders` carry a `JSON` value. It is parsed by [yyjson](https://github.com/ibireme/yyjson), and fields are converted to Swift types only when you read them:
+WebSocket events and API error bodies carry a `JSON` value. It is parsed by [yyjson](https://github.com/ibireme/yyjson), and fields are converted to Swift types only when you read them:
 
 ```swift
 let price = ticker["lastPrice"].doubleValue
@@ -298,8 +311,10 @@ All methods throw `MexcFuturesError`:
 
 ```swift
 do {
-    let asset = try await account.accountAsset(currency: "USDT")
-    print(asset.data?.availableBalance ?? 0)
+    let asset = try await account.accountAsset(currency: "USDT").get()
+    print(asset.availableBalance)
+} catch .rejected(let code, let message) {
+    print("MEXC rejected the request:", code, message)
 } catch .authentication {
     print("Update your WEB token.")
 } catch .signature {

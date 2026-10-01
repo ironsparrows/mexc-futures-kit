@@ -6,12 +6,16 @@ public import Logging
 /// The client serves public market data, which needs no credentials. Private account data and
 /// trading need a WEB token, see ``account(authToken:)``.
 ///
-/// Every method returns MEXC's whole ``Response``, including whether the request succeeded:
+/// Every method returns a `Result`: the typed data, or ``MexcFuturesError/rejected(code:message:)``
+/// when MEXC rejects the request. Network and HTTP failures are thrown:
 ///
 /// ```swift
-/// let client = MexcFuturesClient()
-/// let response = try await client.ticker(symbol: "BTC_USDT")
-/// print(response.data?.lastPrice ?? 0)
+/// switch try await MexcFuturesClient().ticker(symbol: "BTC_USDT") {
+/// case .success(let ticker):
+///     print(ticker.lastPrice)
+/// case .failure(let error):
+///     print(error.localizedDescription)
+/// }
 /// ```
 public struct MexcFuturesClient: Sendable {
     /// The settings of the client.
@@ -55,21 +59,21 @@ extension MexcFuturesClient {
     /// Returns the ticker of a contract.
     ///
     /// - Parameter symbol: The contract symbol, such as `BTC_USDT`.
-    /// - Returns: The response, whose ``Response/data`` holds the ticker.
-    public func ticker(symbol: String) async throws(MexcFuturesError) -> Response<Ticker> {
+    /// - Returns: The ticker, or MEXC's rejection.
+    public func ticker(symbol: String) async throws(MexcFuturesError) -> Result<Ticker, MexcFuturesError> {
         try await get(.ticker, query: [URLQueryItem(name: "symbol", value: symbol)])
-            .decode { Response(node: $0, payload: Ticker.init(node:)) }
+            .decode { Result(response: $0) { $0.object(Ticker.init(node:)) } }
     }
 
     /// Returns the specification of a contract, or of every contract.
     ///
     /// - Parameter symbol: The contract symbol, or `nil` for every contract.
-    /// - Returns: The response, whose ``Response/data`` holds the requested contracts.
-    public func contractDetail(symbol: String? = nil) async throws(MexcFuturesError) -> Response<[ContractDetail]> {
+    /// - Returns: The requested contracts, or MEXC's rejection.
+    public func contractDetail(symbol: String? = nil) async throws(MexcFuturesError) -> Result<[ContractDetail], MexcFuturesError> {
         try await get(.contractDetail, query: symbol.map { [URLQueryItem(name: "symbol", value: $0)] } ?? [])
             .decode { root in
-                Response(node: root) { data in
-                    data.map(ContractDetail.init(node:)) ?? (data.isObject ? [ContractDetail(node: data)] : nil)
+                Result(response: root) { data in
+                    data.map(ContractDetail.init(node:)) ?? data.object { [ContractDetail(node: $0)] }
                 }
             }
     }
@@ -79,19 +83,19 @@ extension MexcFuturesClient {
     /// - Parameters:
     ///   - symbol: The contract symbol, such as `BTC_USDT`.
     ///   - limit: The number of price levels per side, or `nil` for the server default.
-    /// - Returns: The response, whose ``Response/data`` holds the order book.
-    public func contractDepth(symbol: String, limit: Int? = nil) async throws(MexcFuturesError) -> Response<ContractDepth> {
+    /// - Returns: The order book, or MEXC's rejection.
+    public func contractDepth(symbol: String, limit: Int? = nil) async throws(MexcFuturesError) -> Result<ContractDepth, MexcFuturesError> {
         try await get(.contractDepth, pathComponents: [symbol], query: limit.map { [URLQueryItem(name: "limit", value: String($0))] } ?? [])
             .decode { root in
-                root["data"].exists
-                    ? Response(node: root, payload: ContractDepth.init(node:))
-                    : Response(success: true, code: 0, message: nil, data: ContractDepth(node: root))
+                root["success"].exists
+                    ? Result(response: root) { $0.object(ContractDepth.init(node:)) }
+                    : .success(ContractDepth(node: root))
             }
     }
 
     /// Checks that the API is reachable by requesting the `BTC_USDT` ticker.
     ///
-    /// - Returns: `true` when the request succeeds.
+    /// - Returns: `true` when MEXC answers, even with a rejection.
     public func testConnection() async -> Bool {
         do {
             _ = try await ticker(symbol: "BTC_USDT")

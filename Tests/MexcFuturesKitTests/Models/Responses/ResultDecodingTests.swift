@@ -2,26 +2,37 @@ import Foundation
 import Testing
 @testable import MexcFuturesKit
 
-@Suite("Response decoding")
-struct ResponseDecodingTests {
-    @Test func decodesEnvelope() throws {
-        let response = try decode(#"{"success":false,"code":2005,"message":"Balance insufficient"}"#) { $0.int64 }
+@Suite("Result decoding")
+struct ResultDecodingTests {
+    @Test func rejectionDecodesAsFailure() throws {
+        let result = try decode(#"{"success":false,"code":2005,"message":"Balance insufficient"}"#) { $0.int64 }
 
-        #expect(response.success == false)
-        #expect(response.code == 2005)
-        #expect(response.message == "Balance insufficient")
-        #expect(response.data == nil)
+        guard case .failure(.rejected(let code, let message)) = result else {
+            Issue.record("Expected a rejection, got \(result)")
+            return
+        }
+        #expect(code == 2005)
+        #expect(message == "Balance insufficient")
+    }
+
+    @Test func missingDataDecodesAsMalformed() throws {
+        let result = try decode(#"{"success":true,"code":0}"#) { $0.object(Ticker.init(node:)) }
+
+        guard case .failure(.malformedMessage) = result else {
+            Issue.record("Expected a malformed message, got \(result)")
+            return
+        }
     }
 
     @Test(arguments: [#"817027833053397504"#, #""817027833053397504""#])
     func decodesOrderIDFromNumberOrString(id: String) throws {
-        let response = try decode(#"{"success":true,"code":0,"data":\#(id)}"#) { $0.int64 }
+        let orderID = try decode(#"{"success":true,"code":0,"data":\#(id)}"#) { $0.int64 }.get()
 
-        #expect(response.data == 817027833053397504)
+        #expect(orderID == 817027833053397504)
     }
 
     @Test func decodesTicker() throws {
-        let ticker = try #require(try decode(Fixtures.ticker, payload: Ticker.init(node:)).data)
+        let ticker = try decode(Fixtures.ticker) { $0.object(Ticker.init(node:)) }.get()
 
         #expect(ticker.contractID == 10)
         #expect(ticker.symbol == "BTC_USDT")
@@ -34,7 +45,7 @@ struct ResponseDecodingTests {
     }
 
     @Test func decodesContractDetail() throws {
-        let contract = try #require(try decode(Fixtures.contract, payload: ContractDetail.init(node:)).data)
+        let contract = try decode(Fixtures.contract) { $0.object(ContractDetail.init(node:)) }.get()
 
         #expect(contract.symbol == "BTC_USDT")
         #expect(contract.displayNameEnglish == "BTC_USDT PERPETUAL")
@@ -48,10 +59,9 @@ struct ResponseDecodingTests {
     }
 
     @Test func decodesOrderBookLevels() throws {
-        let depth = try #require(try decode(
-            #"{"success":true,"code":0,"data":{"asks":[[83502.1,1200,3]],"bids":[[83501.9,800]],"version":42267179204,"timestamp":1790860426579}}"#,
-            payload: ContractDepth.init(node:)
-        ).data)
+        let depth = try decode(
+            #"{"success":true,"code":0,"data":{"asks":[[83502.1,1200,3]],"bids":[[83501.9,800]],"version":42267179204,"timestamp":1790860426579}}"#
+        ) { $0.object(ContractDepth.init(node:)) }.get()
 
         #expect(depth.asks == [.init(price: 83502.1, volume: 1200, orderCount: 3)])
         #expect(depth.bids == [.init(price: 83501.9, volume: 800, orderCount: nil)])
@@ -59,7 +69,7 @@ struct ResponseDecodingTests {
     }
 
     @Test func decodesOrder() throws {
-        let order = try #require(try decode(Fixtures.order, payload: Order.init(node:)).data)
+        let order = try decode(Fixtures.order) { $0.object(Order.init(node:)) }.get()
 
         #expect(order.orderID == 817027833053397504)
         #expect(order.positionID == 12345)
@@ -76,14 +86,14 @@ struct ResponseDecodingTests {
     }
 
     @Test func unknownCodeDecodesAsNil() throws {
-        let order = try #require(try decode(#"{"success":true,"code":0,"data":{"orderId":1,"side":9,"state":99}}"#, payload: Order.init(node:)).data)
+        let order = try decode(#"{"success":true,"code":0,"data":{"orderId":1,"side":9,"state":99}}"#) { $0.object(Order.init(node:)) }.get()
 
         #expect(order.side == nil)
         #expect(order.state == nil)
     }
 
     @Test func decodesOrderDeal() throws {
-        let deals = try #require(try decode(Fixtures.deals) { $0.map(OrderDeal.init(node:)) }.data)
+        let deals = try decode(Fixtures.deals) { $0.map(OrderDeal.init(node:)) }.get()
 
         #expect(deals.count == 1)
         #expect(deals[0].orderID == 817027833053397504)
@@ -94,7 +104,7 @@ struct ResponseDecodingTests {
     }
 
     @Test func decodesPosition() throws {
-        let positions = try #require(try decode(Fixtures.positions) { $0.map(Position.init(node:)) }.data)
+        let positions = try decode(Fixtures.positions) { $0.map(Position.init(node:)) }.get()
 
         #expect(positions.count == 1)
         #expect(positions[0].positionType == .long)
@@ -106,7 +116,7 @@ struct ResponseDecodingTests {
     }
 
     @Test func decodesAccountAsset() throws {
-        let asset = try #require(try decode(Fixtures.asset, payload: AccountAsset.init(node:)).data)
+        let asset = try decode(Fixtures.asset) { $0.object(AccountAsset.init(node:)) }.get()
 
         #expect(asset.currency == "USDT")
         #expect(asset.availableBalance == 120.5)
@@ -115,9 +125,9 @@ struct ResponseDecodingTests {
 
     @Test(arguments: [Fixtures.riskLimitsByContract, Fixtures.riskLimitsList])
     func decodesRiskLimitsInEitherShape(text: String) throws {
-        let limits = try #require(try decode(text) { data in
+        let limits = try decode(text) { data in
             data.map(RiskLimit.init(node:)) ?? data.members()?.flatMap { $0.value.map(RiskLimit.init(node:)) ?? [] }
-        }.data)
+        }.get()
 
         #expect(limits.count == 1)
         #expect(limits[0].symbol == "BTC_USDT")
@@ -128,9 +138,9 @@ struct ResponseDecodingTests {
     }
 
     @Test func decodesCancelResults() throws {
-        let results = try #require(try decode(
+        let results = try decode(
             #"{"success":true,"code":0,"data":[{"orderId":817027833053397504,"errorCode":0,"errorMsg":"success"},{"orderId":"2","errorCode":2041,"errorMsg":"order not exist"}]}"#
-        ) { $0.map(CancelOrderResult.init(node:)) }.data)
+        ) { $0.map(CancelOrderResult.init(node:)) }.get()
 
         #expect(results == [
             .init(orderID: 817027833053397504, errorCode: 0, errorMessage: "success"),
@@ -139,20 +149,20 @@ struct ResponseDecodingTests {
     }
 
     @Test func decodesFeeRatesAndExternalReference() throws {
-        let rates = try #require(try decode(#"{"success":true,"code":0,"data":[{"symbol":"BTC_USDT","takerFeeRate":0.0002,"makerFeeRate":0}]}"#) { $0.map(FeeRate.init(node:)) }.data)
-        let reference = try #require(try decode(#"{"success":true,"code":0,"data":{"symbol":"BTC_USDT","externalOid":"client-1"}}"#, payload: ExternalOrderReference.init(node:)).data)
+        let rates = try decode(#"{"success":true,"code":0,"data":[{"symbol":"BTC_USDT","takerFeeRate":0.0002,"makerFeeRate":0}]}"#) { $0.map(FeeRate.init(node:)) }.get()
+        let reference = try decode(#"{"success":true,"code":0,"data":{"symbol":"BTC_USDT","externalOid":"client-1"}}"#) { $0.object(ExternalOrderReference.init(node:)) }.get()
 
         #expect(rates == [FeeRate(symbol: "BTC_USDT", takerFeeRate: 0.0002, makerFeeRate: 0)])
         #expect(reference == ExternalOrderReference(symbol: "BTC_USDT", externalOrderID: "client-1"))
     }
 
-    private func decode<Payload>(
+    private func decode<Value>(
         _ text: String,
         sourceLocation: SourceLocation = #_sourceLocation,
-        payload: (JSONNode) -> Payload?
-    ) throws -> Response<Payload> {
+        data: (JSONNode) -> Value?
+    ) throws -> Result<Value, MexcFuturesError> {
         let document = try #require(JSONDocument.parse(Data(text.utf8)), sourceLocation: sourceLocation)
-        return document.decode { Response(node: $0, payload: payload) }
+        return document.decode { Result(response: $0, data: data) }
     }
 }
 

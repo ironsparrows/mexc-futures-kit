@@ -11,10 +11,8 @@ struct LiveMarketDataTests {
     @Test func restReturnsTicker() async throws {
         let client = MexcFuturesClient()
 
-        let response = try await client.ticker(symbol: "BTC_USDT")
+        let ticker = try await client.ticker(symbol: "BTC_USDT").get()
 
-        let ticker = try #require(response.data)
-        #expect(response.success)
         #expect(ticker.symbol == "BTC_USDT")
         #expect(ticker.lastPrice > 0)
         #expect(ticker.timestamp.timeIntervalSinceNow > -60)
@@ -23,8 +21,8 @@ struct LiveMarketDataTests {
     @Test func restReturnsContractDetail() async throws {
         let client = MexcFuturesClient()
 
-        let single = try #require(try await client.contractDetail(symbol: "BTC_USDT").data)
-        let all = try #require(try await client.contractDetail().data)
+        let single = try await client.contractDetail(symbol: "BTC_USDT").get()
+        let all = try await client.contractDetail().get()
 
         #expect(single.map(\.symbol) == ["BTC_USDT"])
         #expect(single.first?.maxLeverage ?? 0 > 0)
@@ -33,7 +31,7 @@ struct LiveMarketDataTests {
     }
 
     @Test func restReturnsOrderBook() async throws {
-        let depth = try #require(try await MexcFuturesClient().contractDepth(symbol: "BTC_USDT", limit: 5).data)
+        let depth = try await MexcFuturesClient().contractDepth(symbol: "BTC_USDT", limit: 5).get()
 
         #expect(depth.asks.count == 5)
         #expect(depth.bids.count == 5)

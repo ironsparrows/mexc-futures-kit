@@ -36,6 +36,12 @@ struct MexcFuturesErrorTests {
         #expect(MexcFuturesError.network(URLError(code)).localizedDescription == expected)
     }
 
+    @Test func rejectionDescribesCodeAndMessage() {
+        let error = MexcFuturesError.rejected(code: 2005, message: "Balance insufficient")
+
+        #expect(error.localizedDescription == "MEXC rejected the request (2005): Balance insufficient")
+    }
+
     @Test func rateLimitIncludesRetryDelay() {
         let error = MexcFuturesError.rateLimit(message: "slow down", retryAfter: .seconds(30))
 

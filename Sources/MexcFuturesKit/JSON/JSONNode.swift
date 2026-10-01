@@ -90,6 +90,10 @@ struct JSONNode {
         date ?? Date(timeIntervalSince1970: 0)
     }
 
+    func object<Value>(_ transform: (JSONNode) -> Value) -> Value? {
+        isObject ? transform(self) : nil
+    }
+
     func map<Element>(_ transform: (JSONNode) -> Element) -> [Element]? {
         guard yyjson_is_arr(pointer) else { return nil }
         var elements: [Element] = []
