@@ -102,11 +102,17 @@ extension MexcFuturesWebSocket {
 
 extension MexcFuturesWebSocket.Event {
     init(text: String) {
-        guard let (channel, data, message) = JSON.message(Data(text.utf8)) else {
+        guard let document = JSONDocument.parse(text) else {
             self = .error(.malformedMessage(text))
             return
         }
+        self = document.decode { root in
+            guard root.isObject else { return .error(.malformedMessage(text)) }
+            return Self(channel: root["channel"].string ?? "", data: JSON(root["data"]), message: { JSON(root) })
+        }
+    }
 
+    private init(channel: String, data: JSON, message: () -> JSON) {
         self = switch channel {
         case "push.depth": .depth(data)
         case "push.deal": .deal(data)
@@ -127,12 +133,12 @@ extension MexcFuturesWebSocket.Event {
         case "push.personal.risk.limit": .riskLimit(data)
         case "push.personal.plan.order": .planOrder(data)
         case "pong": .pong(data)
-        case "rs.login": Self.isAcknowledgement(data) ? .login(message) : .loginFailed(data)
+        case "rs.login": Self.isAcknowledgement(data) ? .login(message()) : .loginFailed(data)
         case "rs.personal.filter": Self.isAcknowledgement(data) ? .filterSet(data) : .filterFailed(data)
         case "rs.error": .error(.server(message: data.string ?? data.description))
         case _ where channel.hasPrefix("rs.sub."): .subscribed(channel: String(channel.trimmingPrefix("rs.sub.")), data: data)
         case _ where channel.hasPrefix("rs.unsub."): .unsubscribed(channel: String(channel.trimmingPrefix("rs.unsub.")), data: data)
-        default: .message(message)
+        default: .message(message())
         }
     }
 

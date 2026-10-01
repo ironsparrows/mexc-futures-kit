@@ -1,5 +1,5 @@
 {
-  "originHash" : "65901ff87fb4b02de1843c85e54d93d514ebb7ff75027647ccd8f7fbcee03a09",
+  "originHash" : "f2da93a11dc33f088ab1bfb5d1cde3062360bf6c5e0144c0c34ff0cf5a4846eb",
   "pins" : [
     {
       "identity" : "swift-algorithms",
@@ -170,6 +170,15 @@
       "state" : {
         "revision" : "90bbbdab3ede12c803cfbe91646f291c092517a3",
         "version" : "2.16.2"
+      }
+    },
+    {
+      "identity" : "yyjson",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ibireme/yyjson.git",
+      "state" : {
+        "revision" : "6447536015f3d600f3d65323b10976103b337ca7",
+        "version" : "0.13.0"
       }
     }
   ],

@@ -64,8 +64,8 @@ struct JSONTests {
         #expect(json["id"].int64 == 817027833053397504)
     }
 
-    @Test func rawDataKeepsOriginalText() {
-        #expect(json["levels"][1].description == "[83501, 0, 0]")
+    @Test func rawDataIsCompactJSON() {
+        #expect(json["levels"][1].description == "[83501,0,0]")
         #expect(json["missing"].description == "null")
     }
 

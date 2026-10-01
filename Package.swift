@@ -27,6 +27,7 @@ let package = Package(
         .package(url: "https://github.com/vapor/websocket-kit.git", from: "2.16.2"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.103.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.15.1"),
+        .package(url: "https://github.com/ibireme/yyjson.git", from: "0.13.0"),
     ],
     targets: [
         .target(
@@ -37,6 +38,7 @@ let package = Package(
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOWebSocket", package: "swift-nio"),
                 .product(name: "Logging", package: "swift-log"),
+                .product(name: "yyjson", package: "yyjson"),
             ],
             swiftSettings: swiftSettings,
         ),
