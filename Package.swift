@@ -47,7 +47,10 @@ let package = Package(
         ),
         .testTarget(
             name: "MexcFuturesKitTests",
-            dependencies: ["MexcFuturesKit"],
+            dependencies: [
+                "MexcFuturesKit",
+                .product(name: "SwiftyJSON", package: "SwiftyJSON"),
+            ],
             swiftSettings: swiftSettings,
         ),
     ]
