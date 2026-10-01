@@ -27,7 +27,6 @@ let package = Package(
         .package(url: "https://github.com/SwiftyJSON/SwiftyJSON.git", branch: "master"),
         .package(url: "https://github.com/vapor/websocket-kit.git", from: "2.16.2"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.103.0"),
-        .package(url: "https://github.com/apple/swift-crypto.git", from: "5.0.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.15.1"),
     ],
     targets: [
@@ -39,7 +38,6 @@ let package = Package(
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOWebSocket", package: "swift-nio"),
-                .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "Logging", package: "swift-log"),
             ],
             swiftSettings: swiftSettings,
