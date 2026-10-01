@@ -1,7 +1,6 @@
 import Foundation
 import Testing
-import MexcFuturesKit
-import SwiftyJSON
+@testable import MexcFuturesKit
 
 @Suite("MexcFuturesError")
 struct MexcFuturesErrorTests {
@@ -22,7 +21,7 @@ struct MexcFuturesErrorTests {
             statusCode: statusCode,
             method: "GET",
             endpoint: "/contract/ticker",
-            response: .null
+            response: JSON(serializing: NSNull())
         )
 
         #expect(error.localizedDescription == expected)

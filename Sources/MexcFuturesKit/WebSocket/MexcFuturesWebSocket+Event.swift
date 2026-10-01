@@ -1,4 +1,4 @@
-public import SwiftyJSON
+import Foundation
 
 extension MexcFuturesWebSocket {
     /// An event delivered by a ``MexcFuturesWebSocket``.
@@ -101,21 +101,17 @@ extension MexcFuturesWebSocket {
 }
 
 extension MexcFuturesWebSocket.Event {
-    init(message: JSON) {
-        let channel = message["channel"].stringValue
-        let data = message["data"]
+    init(text: String) {
+        guard let (channel, data, message) = JSON.message(Data(text.utf8)) else {
+            self = .error(.malformedMessage(text))
+            return
+        }
 
         self = switch channel {
-        case "pong": .pong(data)
-        case "rs.login": data.isAcknowledgement ? .login(message) : .loginFailed(data)
-        case "rs.personal.filter": data.isAcknowledgement ? .filterSet(data) : .filterFailed(data)
-        case "rs.error": .error(.server(message: data.string ?? data.rawString(options: []) ?? ""))
-        case _ where channel.hasPrefix("rs.sub."): .subscribed(channel: String(channel.trimmingPrefix("rs.sub.")), data: data)
-        case _ where channel.hasPrefix("rs.unsub."): .unsubscribed(channel: String(channel.trimmingPrefix("rs.unsub.")), data: data)
-        case "push.tickers": .tickers(data)
-        case "push.ticker": .ticker(data)
-        case "push.deal": .deal(data)
         case "push.depth": .depth(data)
+        case "push.deal": .deal(data)
+        case "push.ticker": .ticker(data)
+        case "push.tickers": .tickers(data)
         case "push.kline": .kline(data)
         case "push.funding.rate": .fundingRate(data)
         case "push.index.price": .indexPrice(data)
@@ -130,13 +126,17 @@ extension MexcFuturesWebSocket.Event {
         case "push.personal.adl.level": .adlLevel(data)
         case "push.personal.risk.limit": .riskLimit(data)
         case "push.personal.plan.order": .planOrder(data)
+        case "pong": .pong(data)
+        case "rs.login": Self.isAcknowledgement(data) ? .login(message) : .loginFailed(data)
+        case "rs.personal.filter": Self.isAcknowledgement(data) ? .filterSet(data) : .filterFailed(data)
+        case "rs.error": .error(.server(message: data.string ?? data.description))
+        case _ where channel.hasPrefix("rs.sub."): .subscribed(channel: String(channel.trimmingPrefix("rs.sub.")), data: data)
+        case _ where channel.hasPrefix("rs.unsub."): .unsubscribed(channel: String(channel.trimmingPrefix("rs.unsub.")), data: data)
         default: .message(message)
         }
     }
-}
 
-private extension JSON {
-    var isAcknowledgement: Bool {
-        string == "success" || self["code"].int == 0
+    private static func isAcknowledgement(_ data: JSON) -> Bool {
+        data.string == "success" || data["code"].int == 0
     }
 }

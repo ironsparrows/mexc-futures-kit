@@ -1,6 +1,5 @@
 import Foundation
 import Logging
-public import SwiftyJSON
 
 extension MexcFuturesClient {
     /// A client for the private account and trading endpoints of the MEXC futures REST API.

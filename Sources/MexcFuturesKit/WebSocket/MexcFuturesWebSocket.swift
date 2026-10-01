@@ -3,7 +3,6 @@ public import Logging
 import NIOCore
 import NIOPosix
 import NIOWebSocket
-import SwiftyJSON
 import WebSocketKit
 
 /// A client for the MEXC futures WebSocket API.
@@ -181,13 +180,7 @@ extension MexcFuturesWebSocket {
 
     func receive(_ text: String) {
         logger.trace("Received WebSocket message", metadata: ["message": "\(text)"])
-        guard let message = try? JSON(data: Data(text.utf8)) else {
-            logger.error("Malformed WebSocket message", metadata: ["message": "\(text)"])
-            broadcaster.yield(.error(.malformedMessage(text)))
-            return
-        }
-
-        let event = Event(message: message)
+        let event = Event(text: text)
         switch event {
         case .login:
             isLoggedIn = true
@@ -204,7 +197,7 @@ extension MexcFuturesWebSocket {
         case .unsubscribed(let channel, _):
             logger.debug("Unsubscribed", metadata: ["channel": "\(channel)"])
         case .error(let error):
-            logger.error("WebSocket error response", metadata: ["error": "\(error.localizedDescription)"])
+            logger.error("WebSocket error", metadata: ["error": "\(error.localizedDescription)"])
         default:
             break
         }
@@ -225,21 +218,16 @@ extension MexcFuturesWebSocket {
         }
     }
 
-    func send(_ message: JSON) async throws(MexcFuturesError) {
+    func send(_ message: [String: Any]) async throws(MexcFuturesError) {
         guard case .connected(let socket) = state else {
             logger.debug("Cannot send message: WebSocket not connected")
             throw .notConnected
         }
-        guard let data = try? message.rawData(options: [.sortedKeys, .withoutEscapingSlashes]) else {
+        guard let data = try? JSONSerialization.data(withJSONObject: message, options: [.sortedKeys, .withoutEscapingSlashes]) else {
             throw .unknown(message: "WebSocket message could not be encoded")
         }
         let text = String(decoding: data, as: UTF8.self)
-
-        var loggedMessage = message
-        if message["method"].string == "login" {
-            loggedMessage["param"] = "[REDACTED]"
-        }
-        logger.debug("Sending WebSocket message", metadata: ["message": "\(loggedMessage.rawString(options: []) ?? "")"])
+        logger.debug("Sending WebSocket message", metadata: ["message": "\(message["method"] as? String == "login" ? "login" : text)"])
 
         do {
             try await socket.send(text)

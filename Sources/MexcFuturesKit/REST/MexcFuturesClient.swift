@@ -1,6 +1,5 @@
 public import Foundation
 public import Logging
-public import SwiftyJSON
 
 /// A client for the MEXC futures REST API.
 ///

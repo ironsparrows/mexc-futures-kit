@@ -1,12 +1,11 @@
 import Foundation
 import Logging
-import SwiftyJSON
 
 extension MexcFuturesWebSocket {
     struct Session {
         var credentials: Credentials?
         var personalFilters: [PersonalFilter]?
-        var subscriptions: [MarketSubscription: JSON] = [:]
+        var subscriptions: [MarketSubscription: [String: Any]] = [:]
     }
 
     struct Credentials {
@@ -32,9 +31,9 @@ extension MexcFuturesWebSocket {
         if let symbol {
             parameters["symbol"] = symbol
         }
-        var message: JSON = ["method": "sub.\(channel)", "param": parameters]
+        var message: [String: Any] = ["method": "sub.\(channel)", "param": parameters]
         if let gzip {
-            message["gzip"] = JSON(gzip)
+            message["gzip"] = gzip
         }
         try await send(message)
         session.subscriptions[MarketSubscription(channel: channel, symbol: symbol, variant: variant)] = message

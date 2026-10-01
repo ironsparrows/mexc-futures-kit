@@ -24,7 +24,6 @@ let package = Package(
         ),
     ],
     dependencies: [
-        .package(url: "https://github.com/SwiftyJSON/SwiftyJSON.git", branch: "master"),
         .package(url: "https://github.com/vapor/websocket-kit.git", from: "2.16.2"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.103.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.15.1"),
@@ -33,7 +32,6 @@ let package = Package(
         .target(
             name: "MexcFuturesKit",
             dependencies: [
-                .product(name: "SwiftyJSON", package: "SwiftyJSON"),
                 .product(name: "WebSocketKit", package: "websocket-kit"),
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
@@ -46,7 +44,6 @@ let package = Package(
             name: "MexcFuturesKitTests",
             dependencies: [
                 "MexcFuturesKit",
-                .product(name: "SwiftyJSON", package: "SwiftyJSON"),
                 .product(name: "Logging", package: "swift-log"),
                 .product(name: "WebSocketKit", package: "websocket-kit"),
                 .product(name: "NIOCore", package: "swift-nio"),

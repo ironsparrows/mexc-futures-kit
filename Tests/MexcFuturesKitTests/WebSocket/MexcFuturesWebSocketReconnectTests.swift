@@ -1,5 +1,4 @@
 import Foundation
-import SwiftyJSON
 import Testing
 @testable import MexcFuturesKit
 

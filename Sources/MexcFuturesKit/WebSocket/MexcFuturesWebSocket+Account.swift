@@ -1,5 +1,4 @@
 import Foundation
-import SwiftyJSON
 
 extension MexcFuturesWebSocket {
     /// The private account data of a logged-in ``MexcFuturesWebSocket``.
@@ -98,7 +97,7 @@ extension MexcFuturesWebSocket {
             case .login:
                 return
             case .loginFailed(let response):
-                throw .authentication(message: response["msg"].string ?? response.string ?? response.rawString(options: []) ?? "Login rejected")
+                throw .authentication(message: response["msg"].string ?? response.string ?? response.description)
             case .disconnected:
                 throw .notConnected
             default:
@@ -110,7 +109,7 @@ extension MexcFuturesWebSocket {
 
     func setPersonalFilter(_ filters: [PersonalFilter]) async throws(MexcFuturesError) {
         guard isLoggedIn else { throw .notLoggedIn }
-        try await send(["method": "personal.filter", "param": ["filters": filters.map(\.json)]])
+        try await send(["method": "personal.filter", "param": ["filters": filters.map(\.message)]])
         session.personalFilters = filters
     }
 }

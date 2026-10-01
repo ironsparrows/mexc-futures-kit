@@ -3,9 +3,9 @@ import NIOCore
 import NIOHTTP1
 import NIOPosix
 import NIOWebSocket
-import SwiftyJSON
 import Synchronization
 import WebSocketKit
+@testable import MexcFuturesKit
 
 final class MockMexcServer: Sendable {
     struct Behavior: Sendable {
@@ -65,8 +65,11 @@ final class MockMexcServer: Sendable {
         }
     }
 
-    func send(_ message: JSON) async throws {
-        let text = message.rawString(options: []) ?? ""
+    func send(_ message: [String: Any]) async throws {
+        try await send(text: String(decoding: try JSONSerialization.data(withJSONObject: message), as: UTF8.self))
+    }
+
+    func send(text: String) async throws {
         for socket in state.withLock({ $0.sockets }) {
             try await socket.send(text)
         }
@@ -111,13 +114,13 @@ final class MockMexcServer: Sendable {
         socket.onText { socket, text in
             guard let message = try? JSON(data: Data(text.utf8)) else { return }
             self.messageContinuation.yield(message)
-            if let reply = self.reply(to: message) {
-                socket.send(reply.rawString(options: []) ?? "")
+            if let reply = self.reply(to: message), let data = try? JSONSerialization.data(withJSONObject: reply) {
+                socket.send(String(decoding: data, as: UTF8.self))
             }
         }
     }
 
-    private func reply(to message: JSON) -> JSON? {
+    private func reply(to message: JSON) -> [String: Any]? {
         let method = message["method"].stringValue
         return switch method {
         case "ping":

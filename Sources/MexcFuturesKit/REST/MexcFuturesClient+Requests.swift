@@ -1,6 +1,5 @@
 import Foundation
 import Logging
-import SwiftyJSON
 
 extension MexcFuturesClient {
     func get(
@@ -113,6 +112,6 @@ extension MexcFuturesError {
 
 extension JSON {
     init(responseData data: Data) {
-        self = (try? JSON(data: data)) ?? JSON(String(decoding: data, as: UTF8.self))
+        self = (try? JSON(data: data)) ?? JSON(serializing: String(decoding: data, as: UTF8.self))
     }
 }

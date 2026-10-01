@@ -1,5 +1,4 @@
 public import Foundation
-public import SwiftyJSON
 
 /// An error thrown by ``MexcFuturesClient`` and ``MexcFuturesWebSocket``.
 public enum MexcFuturesError: Error {

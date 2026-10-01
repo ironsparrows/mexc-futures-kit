@@ -1,4 +1,3 @@
-import SwiftyJSON
 
 /// A filter that selects the private data pushed after login.
 public struct PersonalFilter: Sendable, Hashable {
@@ -50,11 +49,11 @@ public struct PersonalFilter: Sendable, Hashable {
 }
 
 extension PersonalFilter {
-    var json: JSON {
-        var json: JSON = ["filter": kind.rawValue]
+    var message: [String: Any] {
+        var message: [String: Any] = ["filter": kind.rawValue]
         if let symbols {
-            json["rules"] = JSON(symbols)
+            message["rules"] = symbols
         }
-        return json
+        return message
     }
 }

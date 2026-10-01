@@ -1,5 +1,4 @@
 import Foundation
-import SwiftyJSON
 import Testing
 @testable import MexcFuturesKit
 
@@ -47,7 +46,35 @@ struct MexcFuturesWebSocketConnectionTests {
             try await account.setPersonalFilter([PersonalFilter(.order, symbols: ["BTC_USDT"]), PersonalFilter(.asset)])
 
             let filter = try #require(await server.nextMessage(method: "personal.filter"))
-            #expect(filter["param"]["filters"] == [["filter": "order", "rules": ["BTC_USDT"]], ["filter": "asset"]])
+            #expect(filter["param"]["filters"].description == #"[{"filter":"order","rules":["BTC_USDT"]},{"filter":"asset"}]"#)
+        }
+    }
+
+    @Test func everyStreamReceivesPushedData() async throws {
+        try await withConnectedSocket { server, socket, events in
+            let second = socket.events()
+
+            try await server.send(["channel": "push.ticker", "data": ["symbol": "BTC_USDT"]])
+
+            for stream in [events, second] {
+                let ticker = await stream.compactMap { $0.caseName == "ticker" ? $0.payload : nil }.first { _ in true }
+                #expect(ticker?["symbol"].string == "BTC_USDT")
+            }
+        }
+    }
+
+    @Test func malformedMessageDeliversErrorAndKeepsConnection() async throws {
+        try await withConnectedSocket { server, socket, events in
+            try await server.send(text: "not json")
+
+            let error = await events.compactMap { event -> MexcFuturesError? in
+                if case .error(let error) = event { error } else { nil }
+            }.first { _ in true }
+            guard case .malformedMessage = error else {
+                Issue.record("Expected a malformed message error, got \(String(describing: error))")
+                return
+            }
+            #expect(await socket.isConnected)
         }
     }
 
