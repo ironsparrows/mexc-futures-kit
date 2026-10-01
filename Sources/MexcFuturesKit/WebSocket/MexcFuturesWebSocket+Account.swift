@@ -3,11 +3,11 @@ import Foundation
 extension MexcFuturesWebSocket {
     /// The private account data of a logged-in ``MexcFuturesWebSocket``.
     ///
-    /// Get an account from ``MexcFuturesWebSocket/login(apiKey:secretKey:subscribe:)``. Account events,
+    /// Get an account from ``MexcFuturesWebSocket/login(authToken:subscribe:)``. Account events,
     /// such as ``MexcFuturesWebSocket/Event/orderUpdate(_:)``, arrive on the socket's ``MexcFuturesWebSocket/events(bufferingPolicy:)``.
     ///
     /// ```swift
-    /// let account = try await socket.login(apiKey: "...", secretKey: "...", subscribe: false)
+    /// let account = try await socket.login(authToken: "WEB...", subscribe: false)
     /// try await account.subscribeToOrders(symbols: ["BTC_USDT"])
     /// ```
     public struct Account: Sendable {
@@ -59,7 +59,24 @@ extension MexcFuturesWebSocket {
         }
     }
 
-    /// Logs in to receive private account data, and waits for the server to accept the login.
+    /// Logs in with the WEB token of a signed-in browser session to receive private account data,
+    /// and waits for the server to accept the login.
+    ///
+    /// This is the same token ``MexcFuturesClient/account(authToken:)`` uses, so one credential serves
+    /// both REST and WebSocket. Market data needs no login. After the login, ``isLoggedIn`` is `true`.
+    ///
+    /// - Parameters:
+    ///   - authToken: The WEB authorization token of a signed-in browser session.
+    ///   - subscribe: Whether the server pushes every kind of private data after login.
+    ///     Pass `false` to choose the data with ``Account/setPersonalFilter(_:)``.
+    /// - Returns: The account, which selects the private data the server pushes.
+    /// - Throws: ``MexcFuturesError/authentication(message:)`` when the server rejects the login.
+    @discardableResult
+    public func login(authToken: String, subscribe: Bool = true) async throws(MexcFuturesError) -> Account {
+        try await login(Credentials(key: .authToken(authToken), subscribe: subscribe))
+    }
+
+    /// Logs in with an API key to receive private account data, and waits for the server to accept the login.
     ///
     /// Market data needs no login. After the login, ``isLoggedIn`` is `true`.
     ///
@@ -72,7 +89,10 @@ extension MexcFuturesWebSocket {
     /// - Throws: ``MexcFuturesError/authentication(message:)`` when the server rejects the login.
     @discardableResult
     public func login(apiKey: String, secretKey: String, subscribe: Bool = true) async throws(MexcFuturesError) -> Account {
-        let credentials = Credentials(apiKey: apiKey, secretKey: secretKey, subscribe: subscribe)
+        try await login(Credentials(key: .apiKey(apiKey, secretKey: secretKey), subscribe: subscribe))
+    }
+
+    private func login(_ credentials: Credentials) async throws(MexcFuturesError) -> Account {
         try await authenticate(credentials)
         session.credentials = credentials
         return Account(socket: self)
@@ -81,16 +101,7 @@ extension MexcFuturesWebSocket {
     func authenticate(_ credentials: Credentials) async throws(MexcFuturesError) {
         guard isConnected else { throw .notConnected }
         let responses = events()
-        let requestTime = String(Date.now.millisecondsSince1970)
-        try await send([
-            "subscribe": credentials.subscribe,
-            "method": "login",
-            "param": [
-                "apiKey": credentials.apiKey,
-                "signature": hmacSHA256(credentials.apiKey + requestTime, secret: credentials.secretKey),
-                "reqTime": requestTime,
-            ],
-        ])
+        try await send(["subscribe": credentials.subscribe, "method": "login", "param": credentials.loginParameters])
 
         for await event in responses {
             switch event {

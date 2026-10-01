@@ -24,6 +24,18 @@ struct MexcFuturesWebSocketConnectionTests {
         }
     }
 
+    @Test func tokenLoginSendsTokenOnly() async throws {
+        try await withConnectedSocket { server, socket, _ in
+            try await socket.login(authToken: "WEB-token", subscribe: false)
+
+            let login = try #require(await server.nextMessage(method: "login"))
+            #expect(login["param"]["token"].string == "WEB-token")
+            #expect(login["param"]["signature"].exists == false)
+            #expect(login["subscribe"].bool == false)
+            #expect(await socket.isLoggedIn)
+        }
+    }
+
     @Test func rejectedLoginThrowsAuthentication() async throws {
         try await withConnectedSocket(behavior: .init(acceptsLogin: false)) { _, socket, _ in
             let error = await #expect(throws: MexcFuturesError.self) {

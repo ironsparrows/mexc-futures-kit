@@ -23,8 +23,8 @@ import WebSocketKit
 /// }
 /// ```
 ///
-/// Private account data needs a login with an API key. ``login(apiKey:secretKey:subscribe:)`` returns an
-/// ``Account`` that selects the private data the server pushes.
+/// Private account data needs a login with the WEB token, ``login(authToken:subscribe:)``, or an API key.
+/// The login returns an ``Account`` that selects the private data the server pushes.
 ///
 /// The socket sends keep-alive pings while connected and, when ``Configuration/autoReconnect`` is on,
 /// reconnects after the connection drops.

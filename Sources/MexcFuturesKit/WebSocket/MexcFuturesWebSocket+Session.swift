@@ -9,9 +9,23 @@ extension MexcFuturesWebSocket {
     }
 
     struct Credentials {
-        let apiKey: String
-        let secretKey: String
+        enum Key {
+            case authToken(String)
+            case apiKey(String, secretKey: String)
+        }
+
+        let key: Key
         let subscribe: Bool
+
+        var loginParameters: [String: String] {
+            switch key {
+            case .authToken(let token):
+                return ["token": token]
+            case .apiKey(let apiKey, let secretKey):
+                let requestTime = String(Date.now.millisecondsSince1970)
+                return ["apiKey": apiKey, "signature": hmacSHA256(apiKey + requestTime, secret: secretKey), "reqTime": requestTime]
+            }
+        }
     }
 
     struct MarketSubscription: Hashable {

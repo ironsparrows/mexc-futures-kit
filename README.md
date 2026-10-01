@@ -39,7 +39,7 @@ targets: [
 
 ## Authentication
 
-Market data needs no credentials, on REST or on the WebSocket. Only account data and trading need them.
+Market data needs no credentials, on REST or on the WebSocket. Account data and trading need the WEB token of a signed-in browser session. The same token works for REST and the WebSocket.
 
 ### REST: browser session token
 
@@ -50,9 +50,11 @@ Market data needs no credentials, on REST or on the WebSocket. Only account data
 3. Select any request to `futures.mexc.com`.
 4. Copy the value of the `authorization` header. It starts with `WEB`.
 
-### WebSocket: API keys
+### WebSocket: WEB token or API keys
 
-`MexcFuturesWebSocket.login(apiKey:secretKey:subscribe:)` needs these keys.
+`MexcFuturesWebSocket.login(authToken:subscribe:)` takes the same WEB token as REST.
+
+`MexcFuturesWebSocket.login(apiKey:secretKey:subscribe:)` takes an API key instead. This is the login MEXC documents:
 
 1. Open MEXC API Management.
 2. Create an API key and a secret key.
@@ -185,10 +187,10 @@ for await event in events {
 }
 ```
 
-Private account data needs a login. `login(apiKey:secretKey:subscribe:)` waits for the server to accept the keys. It returns a `MexcFuturesWebSocket.Account`, which selects the private data the server pushes:
+Private account data needs a login. `login(authToken:subscribe:)` waits for the server to accept the WEB token. It returns a `MexcFuturesWebSocket.Account`, which selects the private data the server pushes:
 
 ```swift
-let account = try await socket.login(apiKey: "...", secretKey: "...", subscribe: false)
+let account = try await socket.login(authToken: "WEB...", subscribe: false)
 try await account.setPersonalFilter([
     PersonalFilter(.order, symbols: ["BTC_USDT", "ETH_USDT"]),
     PersonalFilter(.position, symbols: ["BTC_USDT", "ETH_USDT"]),
@@ -264,7 +266,7 @@ When you receive every depth change, keep your own order book. Start from a `con
 | Event | Meaning |
 | --- | --- |
 | `connected`, `disconnected(code:)` | The connection opened or closed |
-| `login`, `loginFailed` | The result of `login(apiKey:secretKey:subscribe:)` |
+| `login`, `loginFailed` | The result of a login |
 | `filterSet`, `filterFailed` | The result of `setPersonalFilter(_:)` |
 | `subscribed(channel:data:)`, `unsubscribed(channel:data:)` | The server confirmed a subscription change |
 | `pong` | The server answered a keep-alive ping |
