@@ -21,7 +21,7 @@ struct MexcFuturesErrorTests {
             statusCode: statusCode,
             method: "GET",
             endpoint: "/contract/ticker",
-            response: JSON(serializing: NSNull())
+            response: .missing
         )
 
         #expect(error.localizedDescription == expected)

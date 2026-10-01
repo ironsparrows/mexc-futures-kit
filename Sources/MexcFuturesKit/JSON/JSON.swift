@@ -141,16 +141,3 @@ extension JSON: CustomStringConvertible {
         String(decoding: rawData(), as: UTF8.self)
     }
 }
-
-extension JSON {
-    init(serializing object: Any) {
-        guard JSONSerialization.isValidJSONObject([object]),
-              let data = try? JSONSerialization.data(withJSONObject: object, options: [.fragmentsAllowed, .withoutEscapingSlashes]),
-              let json = try? JSON(data: data)
-        else {
-            self = .missing
-            return
-        }
-        self = json
-    }
-}

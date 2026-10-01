@@ -7,12 +7,12 @@ extension MexcFuturesClient {
         authToken: String? = nil,
         pathComponents: [String] = [],
         query: [URLQueryItem] = []
-    ) async throws(MexcFuturesError) -> JSON {
+    ) async throws(MexcFuturesError) -> JSONDocument {
         let request = makeRequest(method: "GET", endpoint: endpoint, authToken: authToken, pathComponents: pathComponents, query: query)
         return try await send(request)
     }
 
-    func post(_ endpoint: Endpoint, authToken: String, body: some Encodable) async throws(MexcFuturesError) -> JSON {
+    func post(_ endpoint: Endpoint, authToken: String, body: some Encodable) async throws(MexcFuturesError) -> JSONDocument {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         let data: Data
@@ -62,7 +62,7 @@ extension MexcFuturesClient {
         return request
     }
 
-    private func send(_ request: URLRequest) async throws(MexcFuturesError) -> JSON {
+    private func send(_ request: URLRequest) async throws(MexcFuturesError) -> JSONDocument {
         let method = request.httpMethod ?? "GET"
         let endpoint = request.url.map { String($0.path().trimmingPrefix(configuration.baseURL.path())) } ?? ""
         logger.debug("Sending request", metadata: ["method": "\(method)", "url": "\(request.url?.absoluteString ?? "")"])
@@ -79,14 +79,16 @@ extension MexcFuturesClient {
             throw .unknown(message: error.localizedDescription)
         }
 
-        let body = JSON(responseData: data)
         logger.debug("Received response", metadata: ["status": "\(response.statusCode)"])
         guard (200..<300).contains(response.statusCode) else {
-            let error = MexcFuturesError(response: response, body: body, method: method, endpoint: endpoint)
+            let error = MexcFuturesError(response: response, body: (try? JSON(data: data)) ?? .missing, method: method, endpoint: endpoint)
             logger.debug("Request failed", metadata: ["error": "\(error.localizedDescription)"])
             throw error
         }
-        return body
+        guard let document = JSONDocument.parse(data) else {
+            throw .malformedMessage(String(decoding: data, as: UTF8.self))
+        }
+        return document
     }
 }
 
@@ -107,11 +109,5 @@ extension MexcFuturesError {
         default:
             self = .api(message: message, code: code, statusCode: statusCode, method: method, endpoint: endpoint, response: body)
         }
-    }
-}
-
-extension JSON {
-    init(responseData data: Data) {
-        self = (try? JSON(data: data)) ?? JSON(serializing: String(decoding: data, as: UTF8.self))
     }
 }

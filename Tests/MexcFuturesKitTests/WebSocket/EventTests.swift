@@ -26,14 +26,14 @@ struct EventTests {
         ("push.personal.plan.order", "planOrder"),
     ])
     func pushChannelDeliversData(channel: String, expectedCase: String) {
-        let event = MexcFuturesWebSocket.Event(channel: channel, data: ["value": 42])
+        let event = MexcFuturesWebSocket.Event(channel: channel, data: #"{"value":42}"#)
 
         #expect(event.caseName == expectedCase)
         #expect(event.payload?["value"].int == 42)
     }
 
-    @Test(arguments: [JSON(serializing: "success"), JSON(serializing: ["code": 0])])
-    func loginAcknowledgementDeliversMessage(data: JSON) {
+    @Test(arguments: [#""success""#, #"{"code":0}"#])
+    func loginAcknowledgementDeliversMessage(data: String) {
         let event = MexcFuturesWebSocket.Event(channel: "rs.login", data: data)
 
         #expect(event.caseName == "login")
@@ -41,18 +41,18 @@ struct EventTests {
     }
 
     @Test func loginRejectionDeliversData() {
-        let event = MexcFuturesWebSocket.Event(channel: "rs.login", data: ["code": 401, "msg": "denied"])
+        let event = MexcFuturesWebSocket.Event(channel: "rs.login", data: #"{"code":401,"msg":"denied"}"#)
 
         #expect(event.caseName == "loginFailed")
         #expect(event.payload?["msg"].string == "denied")
     }
 
     @Test(arguments: [
-        (JSON(serializing: "success"), "filterSet"),
-        (JSON(serializing: ["code": 0]), "filterSet"),
-        (JSON(serializing: "failed"), "filterFailed"),
+        (#""success""#, "filterSet"),
+        (#"{"code":0}"#, "filterSet"),
+        (#""failed""#, "filterFailed"),
     ])
-    func filterResponseReportsOutcome(data: JSON, expectedCase: String) {
+    func filterResponseReportsOutcome(data: String, expectedCase: String) {
         let event = MexcFuturesWebSocket.Event(channel: "rs.personal.filter", data: data)
 
         #expect(event.caseName == expectedCase)
@@ -63,7 +63,7 @@ struct EventTests {
         ("rs.unsub.depth.full", "unsubscribed"),
     ])
     func subscriptionResponseNamesChannel(channel: String, expectedCase: String) {
-        let event = MexcFuturesWebSocket.Event(channel: channel, data: "success")
+        let event = MexcFuturesWebSocket.Event(channel: channel, data: #""success""#)
 
         switch event {
         case .subscribed(let channel, let data) where expectedCase == "subscribed",
@@ -76,7 +76,7 @@ struct EventTests {
     }
 
     @Test func errorChannelDeliversServerError() {
-        let event = MexcFuturesWebSocket.Event(channel: "rs.error", data: "invalid param")
+        let event = MexcFuturesWebSocket.Event(channel: "rs.error", data: #""invalid param""#)
 
         guard case .error(.server(let message)) = event else {
             Issue.record("Expected a server error, got \(event)")
@@ -96,7 +96,7 @@ struct EventTests {
     }
 
     @Test func unknownChannelDeliversMessage() {
-        let event = MexcFuturesWebSocket.Event(channel: "push.unknown", data: 1)
+        let event = MexcFuturesWebSocket.Event(channel: "push.unknown", data: "1")
 
         #expect(event.caseName == "message")
         #expect(event.payload?["channel"].string == "push.unknown")
@@ -104,8 +104,7 @@ struct EventTests {
 }
 
 extension MexcFuturesWebSocket.Event {
-    init(channel: String, data: Any) {
-        let data = data as? JSON ?? JSON(serializing: data)
+    init(channel: String, data: String) {
         self.init(text: #"{"channel":"\#(channel)","data":\#(data),"ts":1}"#)
     }
 

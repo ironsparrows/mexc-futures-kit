@@ -38,7 +38,7 @@ public enum MexcFuturesError: Error {
     /// The WebSocket server reported an error.
     case server(message: String)
 
-    /// The WebSocket server sent a frame that is not valid JSON.
+    /// The server sent a response or WebSocket message that is not valid JSON.
     case malformedMessage(String)
 
     /// The task waiting for the operation was cancelled.
@@ -93,7 +93,7 @@ extension MexcFuturesError: LocalizedError {
         case .server(let message):
             "WebSocket error response: \(message)"
         case .malformedMessage(let text):
-            "Malformed WebSocket message: \(text)"
+            "Malformed response: \(text)"
         case .cancelled:
             "The operation was cancelled."
         case .unknown(let message):

@@ -6,12 +6,12 @@ public import Logging
 /// The client serves public market data, which needs no credentials. Private account data and
 /// trading need a WEB token, see ``account(authToken:)``.
 ///
-/// Every method returns the full response body, including the `success`, `code` and `data` fields:
+/// Every method returns MEXC's whole ``Response``, including whether the request succeeded:
 ///
 /// ```swift
 /// let client = MexcFuturesClient()
-/// let ticker = try await client.ticker(symbol: "BTC_USDT")
-/// print(ticker["data"]["lastPrice"].doubleValue)
+/// let response = try await client.ticker(symbol: "BTC_USDT")
+/// print(response.data?.lastPrice ?? 0)
 /// ```
 public struct MexcFuturesClient: Sendable {
     /// The settings of the client.
@@ -55,17 +55,23 @@ extension MexcFuturesClient {
     /// Returns the ticker of a contract.
     ///
     /// - Parameter symbol: The contract symbol, such as `BTC_USDT`.
-    /// - Returns: The response body, whose `data` field holds the ticker.
-    public func ticker(symbol: String) async throws(MexcFuturesError) -> JSON {
+    /// - Returns: The response, whose ``Response/data`` holds the ticker.
+    public func ticker(symbol: String) async throws(MexcFuturesError) -> Response<Ticker> {
         try await get(.ticker, query: [URLQueryItem(name: "symbol", value: symbol)])
+            .decode { Response(node: $0, payload: Ticker.init(node:)) }
     }
 
     /// Returns the specification of a contract, or of every contract.
     ///
     /// - Parameter symbol: The contract symbol, or `nil` for every contract.
-    /// - Returns: The response body, whose `data` field holds one contract, or an array of every contract.
-    public func contractDetail(symbol: String? = nil) async throws(MexcFuturesError) -> JSON {
+    /// - Returns: The response, whose ``Response/data`` holds the requested contracts.
+    public func contractDetail(symbol: String? = nil) async throws(MexcFuturesError) -> Response<[ContractDetail]> {
         try await get(.contractDetail, query: symbol.map { [URLQueryItem(name: "symbol", value: $0)] } ?? [])
+            .decode { root in
+                Response(node: root) { data in
+                    data.map(ContractDetail.init(node:)) ?? (data.isObject ? [ContractDetail(node: data)] : nil)
+                }
+            }
     }
 
     /// Returns the order book of a contract.
@@ -73,9 +79,14 @@ extension MexcFuturesClient {
     /// - Parameters:
     ///   - symbol: The contract symbol, such as `BTC_USDT`.
     ///   - limit: The number of price levels per side, or `nil` for the server default.
-    /// - Returns: The response body, holding the `asks` and `bids` price levels.
-    public func contractDepth(symbol: String, limit: Int? = nil) async throws(MexcFuturesError) -> JSON {
+    /// - Returns: The response, whose ``Response/data`` holds the order book.
+    public func contractDepth(symbol: String, limit: Int? = nil) async throws(MexcFuturesError) -> Response<ContractDepth> {
         try await get(.contractDepth, pathComponents: [symbol], query: limit.map { [URLQueryItem(name: "limit", value: String($0))] } ?? [])
+            .decode { root in
+                root["data"].exists
+                    ? Response(node: root, payload: ContractDepth.init(node:))
+                    : Response(success: true, code: 0, message: nil, data: ContractDepth(node: root))
+            }
     }
 
     /// Checks that the API is reachable by requesting the `BTC_USDT` ticker.

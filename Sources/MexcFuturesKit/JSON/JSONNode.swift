@@ -66,6 +66,30 @@ struct JSONNode {
         int64.map { Date(timeIntervalSince1970: Double($0) / 1000) }
     }
 
+    var stringValue: String {
+        string ?? numberText ?? ""
+    }
+
+    var int64Value: Int64 {
+        int64 ?? 0
+    }
+
+    var intValue: Int {
+        int ?? 0
+    }
+
+    var doubleValue: Double {
+        double ?? 0
+    }
+
+    var boolValue: Bool {
+        bool ?? false
+    }
+
+    var dateValue: Date {
+        date ?? Date(timeIntervalSince1970: 0)
+    }
+
     func map<Element>(_ transform: (JSONNode) -> Element) -> [Element]? {
         guard yyjson_is_arr(pointer) else { return nil }
         var elements: [Element] = []
@@ -99,5 +123,24 @@ struct JSONNode {
 
     private func member(_ key: UnsafePointer<CChar>?, count: Int) -> JSONNode {
         JSONNode(document: document, pointer: yyjson_obj_getn(pointer, key, count))
+    }
+}
+
+struct JSONObjectReader {
+    private unowned(unsafe) let document: JSONDocument
+    private var iterator = yyjson_obj_iter()
+
+    init(_ node: JSONNode) {
+        document = node.document
+        yyjson_obj_iter_init(node.pointer, &iterator)
+    }
+
+    mutating func callAsFunction(_ key: StaticString) -> JSONNode {
+        key.withUTF8Buffer { key in
+            JSONNode(
+                document: document,
+                pointer: yyjson_obj_iter_getn(&iterator, UnsafeRawPointer(key.baseAddress)?.assumingMemoryBound(to: CChar.self), key.count)
+            )
+        }
     }
 }
