@@ -50,7 +50,7 @@ struct JSONNode {
     }
 
     var int: Int? {
-        int64.map(Int.init(truncatingIfNeeded:))
+        int64.flatMap(Int.init(exactly:))
     }
 
     var double: Double? {
