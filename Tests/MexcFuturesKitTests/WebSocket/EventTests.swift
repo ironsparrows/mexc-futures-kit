@@ -85,10 +85,10 @@ struct EventTests {
     }
 
     @Test func decodesOrderDeal() throws {
-        let event = MexcFuturesWebSocket.Event(text: #"{"channel":"push.personal.order.deal","data":{"category":1,"externalOid":"_m_example","fee":0.0018,"feeCurrency":"USDT","id":"13914408525","isSelf":false,"orderId":"817027833053397504","positionMode":1,"price":0.2011,"profit":0,"side":1,"symbol":"ARB_USDT","taker":true,"timestamp":1700000000000,"vol":23},"ts":1700000000000}"#)
+        let event = MexcFuturesWebSocket.Event(text: #"{"channel":"push.personal.order.deal","data":{"category":1,"externalOid":"_m_example","fee":0.0018,"feeCurrency":"USDT","id":"12000000001","isSelf":false,"orderId":"817027833053397504","positionMode":1,"price":0.2011,"profit":0,"side":1,"symbol":"ARB_USDT","taker":true,"timestamp":1700000000000,"vol":23},"ts":1700000000000}"#)
 
         guard case .orderDeal(let deal) = event else { Issue.record("Expected an order deal, got \(event)"); return }
-        #expect(deal.id == 13914408525)
+        #expect(deal.id == 12000000001)
         #expect(deal.orderID == 817027833053397504)
         #expect(deal.isTaker)
         #expect(deal.volume == 23)
@@ -113,10 +113,10 @@ struct EventTests {
     }
 
     @Test func decodesStopPlanOrder() throws {
-        let event = MexcFuturesWebSocket.Event(text: #"{"channel":"push.personal.stop.planorder","data":{"createTime":1700000000000,"ensureStopLoss":0,"id":569857826,"isFinished":0,"lossTrend":1,"orderId":"0","positionId":"1234567890","positionType":1,"profitLossVolType":"SAME","profitTrend":1,"realityVol":0,"state":1,"stopLossPrice":0.18,"stopLossReverse":2,"stopLossVol":23,"symbol":"ARB_USDT","takeProfitPrice":0.22,"takeProfitReverse":2,"takeProfitVol":23,"triggerSide":0,"updateTime":1700000000000,"version":0,"vol":23,"volType":2},"ts":1700000000000}"#)
+        let event = MexcFuturesWebSocket.Event(text: #"{"channel":"push.personal.stop.planorder","data":{"createTime":1700000000000,"ensureStopLoss":0,"id":555000111,"isFinished":0,"lossTrend":1,"orderId":"0","positionId":"1234567890","positionType":1,"profitLossVolType":"SAME","profitTrend":1,"realityVol":0,"state":1,"stopLossPrice":0.18,"stopLossReverse":2,"stopLossVol":23,"symbol":"ARB_USDT","takeProfitPrice":0.22,"takeProfitReverse":2,"takeProfitVol":23,"triggerSide":0,"updateTime":1700000000000,"version":0,"vol":23,"volType":2},"ts":1700000000000}"#)
 
         guard case .stopPlanOrder(let order) = event else { Issue.record("Expected a TP/SL order, got \(event)"); return }
-        #expect(order.id == 569857826)
+        #expect(order.id == 555000111)
         #expect(order.positionID == 1234567890)
         #expect(order.takeProfitPrice == 0.22)
         #expect(order.stopLossPrice == 0.18)
@@ -126,10 +126,10 @@ struct EventTests {
     }
 
     @Test func decodesPlanOrder() throws {
-        let event = MexcFuturesWebSocket.Event(text: #"{"channel":"push.personal.plan.order","data":{"createTime":1700000000000,"ensureStopLoss":0,"executeCycle":87600,"extraTakerFeeRate":0,"id":"860670920697239040","leverage":2,"lossTrend":1,"openType":1,"orderType":5,"positionMode":1,"profitTrend":1,"reduceOnly":false,"side":1,"state":1,"symbol":"ARB_USDT","trend":1,"triggerPrice":0.15,"triggerType":2,"updateTime":1700000000000,"vol":66},"ts":1700000000000}"#)
+        let event = MexcFuturesWebSocket.Event(text: #"{"channel":"push.personal.plan.order","data":{"createTime":1700000000000,"ensureStopLoss":0,"executeCycle":87600,"extraTakerFeeRate":0,"id":"812345678901234567","leverage":2,"lossTrend":1,"openType":1,"orderType":5,"positionMode":1,"profitTrend":1,"reduceOnly":false,"side":1,"state":1,"symbol":"ARB_USDT","trend":1,"triggerPrice":0.15,"triggerType":2,"updateTime":1700000000000,"vol":66},"ts":1700000000000}"#)
 
         guard case .planOrder(let order) = event else { Issue.record("Expected a trigger order, got \(event)"); return }
-        #expect(order.id == 860670920697239040)
+        #expect(order.id == 812345678901234567)
         #expect(order.triggerPrice == 0.15)
         #expect(order.triggerDirection == .lessThanOrEqual)
         #expect(order.triggerPriceType == .lastPrice)

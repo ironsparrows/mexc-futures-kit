@@ -219,12 +219,12 @@ struct MexcFuturesClientConditionalRequestTests {
         var expected: (path: String, body: String) {
             switch self {
             case .changeLeverage: ("private/position/change_leverage", #"{"leverage":2,"openType":1,"positionType":1,"symbol":"BTC_USDT"}"#)
-            case .addMargin: ("private/position/change_margin", #"{"amount":1.5,"positionId":1511503963,"type":"ADD"}"#)
-            case .removeMargin: ("private/position/change_margin", #"{"amount":0.5,"positionId":1511503963,"type":"SUB"}"#)
-            case .changeStopOrder: ("private/stoporder/change_plan_price", #"{"lossTrend":1,"profitTrend":1,"stopLossPrice":0.17,"stopPlanOrderId":569857826,"takeProfitPrice":0.23}"#)
-            case .cancelStopOrders: ("private/stoporder/cancel", #"[{"stopPlanOrderId":569857826}]"#)
+            case .addMargin: ("private/position/change_margin", #"{"amount":1.5,"positionId":1234567890,"type":"ADD"}"#)
+            case .removeMargin: ("private/position/change_margin", #"{"amount":0.5,"positionId":1234567890,"type":"SUB"}"#)
+            case .changeStopOrder: ("private/stoporder/change_plan_price", #"{"lossTrend":1,"profitTrend":1,"stopLossPrice":0.17,"stopPlanOrderId":555000111,"takeProfitPrice":0.23}"#)
+            case .cancelStopOrders: ("private/stoporder/cancel", #"[{"stopPlanOrderId":555000111}]"#)
             case .cancelAllStopOrders: ("private/stoporder/cancel_all", "{}")
-            case .cancelPlanOrders: ("private/planorder/cancel", #"[{"orderId":"860670920697239040","symbol":"ARB_USDT"}]"#)
+            case .cancelPlanOrders: ("private/planorder/cancel", #"[{"orderId":"812345678901234567","symbol":"ARB_USDT"}]"#)
             case .cancelAllPlanOrders: ("private/planorder/cancel_all", #"{"symbol":"ARB_USDT"}"#)
             }
         }
@@ -232,12 +232,12 @@ struct MexcFuturesClientConditionalRequestTests {
         func perform(on account: MexcFuturesClient.Account) async throws(MexcFuturesError) -> Result<Void, MexcFuturesError> {
             switch self {
             case .changeLeverage: try await account.changeLeverage(2, symbol: "BTC_USDT", positionType: .long, openType: .isolated)
-            case .addMargin: try await account.addMargin(1.5, positionID: 1511503963)
-            case .removeMargin: try await account.removeMargin(0.5, positionID: 1511503963)
-            case .changeStopOrder: try await account.changeStopOrder(id: 569857826, takeProfitPrice: 0.23, stopLossPrice: 0.17)
-            case .cancelStopOrders: try await account.cancelStopOrders(ids: [569857826])
+            case .addMargin: try await account.addMargin(1.5, positionID: 1234567890)
+            case .removeMargin: try await account.removeMargin(0.5, positionID: 1234567890)
+            case .changeStopOrder: try await account.changeStopOrder(id: 555000111, takeProfitPrice: 0.23, stopLossPrice: 0.17)
+            case .cancelStopOrders: try await account.cancelStopOrders(ids: [555000111])
             case .cancelAllStopOrders: try await account.cancelAllStopOrders()
-            case .cancelPlanOrders: try await account.cancelPlanOrders(ids: [860670920697239040], symbol: "ARB_USDT")
+            case .cancelPlanOrders: try await account.cancelPlanOrders(ids: [812345678901234567], symbol: "ARB_USDT")
             case .cancelAllPlanOrders: try await account.cancelAllPlanOrders(symbol: "ARB_USDT")
             }
         }
@@ -258,20 +258,20 @@ struct MexcFuturesClientConditionalRequestTests {
     }
 
     @Test func placeStopOrderReturnsIdentifier() async throws {
-        let transport = StubTransport(body: #"{"success":true,"code":0,"data":"569857826"}"#)
+        let transport = StubTransport(body: #"{"success":true,"code":0,"data":"555000111"}"#)
 
         let id = try await MexcFuturesClient.Account.stubbed(transport)
-            .placeStopOrder(positionID: 1511503963, takeProfitPrice: 0.22, stopLossPrice: nil, priceType: .fairPrice)
+            .placeStopOrder(positionID: 1234567890, takeProfitPrice: 0.22, stopLossPrice: nil, priceType: .fairPrice)
             .get()
 
         let request = try #require(transport.requests.first)
         #expect(request.url?.absoluteString == "https://www.mexc.com/api/platform/futures/api/v1/private/stoporder/place/v2")
-        #expect(String(decoding: try #require(request.httpBody), as: UTF8.self) == #"{"lossTrend":2,"positionId":1511503963,"profitLossVolType":"SAME","profitTrend":2,"takeProfitPrice":0.22,"volType":2}"#)
-        #expect(id == 569857826)
+        #expect(String(decoding: try #require(request.httpBody), as: UTF8.self) == #"{"lossTrend":2,"positionId":1234567890,"profitLossVolType":"SAME","profitTrend":2,"takeProfitPrice":0.22,"volType":2}"#)
+        #expect(id == 555000111)
     }
 
     @Test func placePlanOrderReturnsIdentifier() async throws {
-        let transport = StubTransport(body: #"{"success":true,"code":0,"data":"860670920697239040"}"#)
+        let transport = StubTransport(body: #"{"success":true,"code":0,"data":"812345678901234567"}"#)
         let order = PlanOrderRequest(symbol: "ARB_USDT", side: .openLong, volume: 66, openType: .isolated, leverage: 2, triggerPrice: 0.15, triggerDirection: .lessThanOrEqual)
 
         let id = try await MexcFuturesClient.Account.stubbed(transport).placePlanOrder(order).get()
@@ -279,7 +279,7 @@ struct MexcFuturesClientConditionalRequestTests {
         let request = try #require(transport.requests.first)
         #expect(request.url?.absoluteString == "https://www.mexc.com/api/platform/futures/api/v1/private/planorder/place/v2")
         #expect(String(decoding: try #require(request.httpBody), as: UTF8.self) == #"{"executeCycle":2,"leverage":2,"openType":1,"orderType":5,"side":1,"symbol":"ARB_USDT","trend":1,"triggerPrice":0.15,"triggerType":2,"vol":66}"#)
-        #expect(id == 860670920697239040)
+        #expect(id == 812345678901234567)
     }
 }
 

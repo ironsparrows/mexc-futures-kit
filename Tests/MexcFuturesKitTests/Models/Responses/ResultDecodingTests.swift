@@ -169,9 +169,9 @@ struct ResultDecodingTests {
         let assets = try decode(Fixtures.assets) { $0.map(AccountAsset.init(node:)) }.get()
 
         #expect(assets.map(\.currency) == ["USDT", "BTC"])
-        #expect(assets[0].positionMargin == 2.31)
-        #expect(assets[0].availableBalance == 7.67)
-        #expect(assets[0].equity == 9.98)
+        #expect(assets[0].positionMargin == 15.2)
+        #expect(assets[0].availableBalance == 120.5)
+        #expect(assets[0].equity == 135.25)
     }
 
     @Test func decodesPositionLeverage() throws {
@@ -186,8 +186,8 @@ struct ResultDecodingTests {
         let orders = try decode(Fixtures.stopOrders) { $0.map(StopOrder.init(node:)) }.get()
 
         #expect(orders.count == 1)
-        #expect(orders[0].id == 569857826)
-        #expect(orders[0].positionID == 1511503963)
+        #expect(orders[0].id == 555000111)
+        #expect(orders[0].positionID == 1234567890)
         #expect(orders[0].takeProfitPrice == 0.23)
         #expect(orders[0].stopLossPrice == 0.17)
         #expect(orders[0].state == .untriggered)
@@ -197,7 +197,7 @@ struct ResultDecodingTests {
         let orders = try decode(Fixtures.planOrders) { $0.map(PlanOrder.init(node:)) }.get()
 
         #expect(orders.count == 1)
-        #expect(orders[0].id == 860670920697239040)
+        #expect(orders[0].id == 812345678901234567)
         #expect(orders[0].triggerPrice == 0.15)
         #expect(orders[0].triggerDirection == .lessThanOrEqual)
         #expect(orders[0].executeCycle == 87600)
@@ -265,8 +265,8 @@ private enum Fixtures {
     """#
 
     static let assets = #"""
-    {"success":true,"code":0,"data":[{"currency":"USDT","displayCurrency":"USDT","positionMargin":2.31,"availableBalance":7.67,"cashBalance":9.98,
-    "frozenBalance":0,"equity":9.98,"unrealized":0,"bonus":0,"availableCash":7.67,"availableOpen":7.67,"debtAmount":0,"contributeMarginAmount":0,
+    {"success":true,"code":0,"data":[{"currency":"USDT","displayCurrency":"USDT","positionMargin":15.2,"availableBalance":120.5,"cashBalance":135.7,
+    "frozenBalance":0,"equity":135.25,"unrealized":0,"bonus":0,"availableCash":120.5,"availableOpen":120.5,"debtAmount":0,"contributeMarginAmount":0,
     "vcoinId":"example"},{"currency":"BTC","displayCurrency":"BTC","positionMargin":0,"availableBalance":0,"cashBalance":0,"frozenBalance":0,
     "equity":0,"unrealized":0,"bonus":0,"availableCash":0,"availableOpen":0,"debtAmount":0,"contributeMarginAmount":0,"vcoinId":"example"}]}
     """#
@@ -277,14 +277,14 @@ private enum Fixtures {
     """#
 
     static let stopOrders = #"""
-    {"success":true,"code":0,"data":[{"id":569857826,"orderId":"0","symbol":"ARB_USDT","positionId":"1511503963","lossTrend":1,"profitTrend":1,
+    {"success":true,"code":0,"data":[{"id":555000111,"orderId":"0","symbol":"ARB_USDT","positionId":"1234567890","lossTrend":1,"profitTrend":1,
     "stopLossPrice":0.17,"takeProfitPrice":0.23,"state":1,"triggerSide":0,"positionType":1,"vol":0,"realityVol":0,"errorCode":0,"version":1,
     "isFinished":0,"priceProtect":0,"profitLossVolType":"SAME","takeProfitVol":0,"stopLossVol":0,"createTime":1700000000000,
     "updateTime":1700000001000,"volType":2,"takeProfitReverse":2,"stopLossReverse":2}]}
     """#
 
     static let planOrders = #"""
-    {"success":true,"code":0,"data":[{"id":"860670920697239040","symbol":"ARB_USDT","leverage":2,"side":1,"triggerPrice":0.15,"vol":66,
+    {"success":true,"code":0,"data":[{"id":"812345678901234567","symbol":"ARB_USDT","leverage":2,"side":1,"triggerPrice":0.15,"vol":66,
     "openType":1,"triggerType":2,"state":1,"executeCycle":87600,"trend":1,"orderType":5,"errorCode":0,"priceProtect":0,
     "createTime":1700000000000,"updateTime":1700000000000,"positionMode":1,"lossTrend":1,"profitTrend":1,"reduceOnly":false}]}
     """#
