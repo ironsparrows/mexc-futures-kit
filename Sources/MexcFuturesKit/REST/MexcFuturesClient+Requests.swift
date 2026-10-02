@@ -54,7 +54,9 @@ extension MexcFuturesClient {
         if let userAgent = configuration.userAgent {
             headers["user-agent"] = userAgent
         }
-        headers.merge(configuration.customHeaders) { $1 }
+        for (name, value) in configuration.customHeaders {
+            headers[name.lowercased()] = value
+        }
         if let authToken {
             headers["authorization"] = authToken
         }

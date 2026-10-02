@@ -124,7 +124,7 @@ struct MexcFuturesClientRequestTests {
         let client = MexcFuturesClient.stubbed(
             transport,
             userAgent: "MexcFuturesKit",
-            customHeaders: ["x-language": "el-GR", "authorization": "other"]
+            customHeaders: ["X-Language": "el-GR", "Authorization": "other"]
         )
 
         _ = try await client.account(authToken: "WEB-token").feeRates()
