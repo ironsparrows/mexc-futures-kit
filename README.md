@@ -114,44 +114,44 @@ case .failure(let error):
 
 ### Market data: `MexcFuturesClient`
 
-| Method | Success value | Endpoint |
-| --- | --- | --- |
-| `ticker(symbol:)` | `Ticker` | `GET /contract/ticker` |
-| `contractDetail(symbol:)` | `[ContractDetail]` | `GET /contract/detail` |
-| `contractDepth(symbol:limit:)` | `ContractDepth` | `GET /contract/depth/{symbol}` |
-| `testConnection()` | `Bool` | Requests the `BTC_USDT` ticker and returns whether it succeeded |
+| Method | Success value |
+| --- | --- |
+| `ticker(symbol:)` | `Ticker` |
+| `contractDetail(symbol:)` | `[ContractDetail]` |
+| `contractDepth(symbol:limit:)` | `ContractDepth` |
+| `testConnection()` | `Bool` |
 
 ### Account data and trading: `MexcFuturesClient.Account`
 
-| Method | Success value | Endpoint |
-| --- | --- | --- |
-| `submitOrder(_:)` | `Int64`, the order ID | `POST /private/order/submit` |
-| `cancelOrders(_:)` | `[CancelOrderResult]` | `POST /private/order/cancel` (up to 50 orders) |
-| `cancelOrder(symbol:externalOrderID:)` | `ExternalOrderReference` | `POST /private/order/cancel_with_external` |
-| `cancelAllOrders(symbol:)` | `Void` | `POST /private/order/cancel_all` |
-| `openOrders(symbol:pageNumber:pageSize:)` | `[Order]` | `GET /private/order/list/open_orders/{symbol}` |
-| `orderHistory(_:)` | `[Order]` | `GET /private/order/list/history_orders` |
-| `orderDeals(_:)` | `[OrderDeal]` | `GET /private/order/list/order_deals` |
-| `order(id:)` | `Order` | `GET /private/order/get/{id}` |
-| `order(symbol:externalOrderID:)` | `Order` | `GET /private/order/external/{symbol}/{externalOid}` |
-| `riskLimits()` | `[RiskLimit]` | `GET /private/account/risk_limit` |
-| `feeRates()` | `[FeeRate]` | `GET /private/account/contract/fee_rate` |
-| `accountAsset(currency:)` | `AccountAsset` | `GET /private/account/asset/{currency}` |
-| `accountAssets()` | `[AccountAsset]` | `GET /private/account/assets` |
-| `openPositions(symbol:)` | `[Position]` | `GET /private/position/open_positions` |
-| `positionHistory(_:)` | `[Position]` | `GET /private/position/list/history_positions` |
-| `leverage(symbol:)` | `[PositionLeverage]` | `GET /private/position/leverage` |
-| `changeLeverage(_:symbol:positionType:openType:)` | `Void` | `POST /private/position/change_leverage` |
-| `addMargin(_:positionID:)`, `removeMargin(_:positionID:)` | `Void` | `POST /private/position/change_margin` |
-| `placeStopOrder(positionID:takeProfitPrice:stopLossPrice:priceType:)` | `Int64`, the TP/SL order ID | `POST /private/stoporder/place/v2` |
-| `changeStopOrder(id:takeProfitPrice:stopLossPrice:priceType:)` | `Void` | `POST /private/stoporder/change_plan_price` |
-| `cancelStopOrders(ids:)` | `Void` | `POST /private/stoporder/cancel` |
-| `cancelAllStopOrders(symbol:)` | `Void` | `POST /private/stoporder/cancel_all` |
-| `openStopOrders(symbol:)` | `[StopOrder]` | `GET /private/stoporder/open_orders` |
-| `placePlanOrder(_:)` | `Int64`, the trigger order ID | `POST /private/planorder/place/v2` |
-| `cancelPlanOrders(ids:symbol:)` | `Void` | `POST /private/planorder/cancel` |
-| `cancelAllPlanOrders(symbol:)` | `Void` | `POST /private/planorder/cancel_all` |
-| `openPlanOrders(symbol:pageNumber:pageSize:)` | `[PlanOrder]` | `GET /private/planorder/list/orders` |
+| Method | Success value |
+| --- | --- |
+| `submitOrder(_:)` | `Int64`, the order ID |
+| `cancelOrders(_:)` | `[CancelOrderResult]` |
+| `cancelOrder(symbol:externalOrderID:)` | `ExternalOrderReference` |
+| `cancelAllOrders(symbol:)` | `Void` |
+| `openOrders(symbol:pageNumber:pageSize:)` | `[Order]` |
+| `orderHistory(_:)` | `[Order]` |
+| `orderDeals(_:)` | `[OrderDeal]` |
+| `order(id:)` | `Order` |
+| `order(symbol:externalOrderID:)` | `Order` |
+| `riskLimits()` | `[RiskLimit]` |
+| `feeRates()` | `[FeeRate]` |
+| `accountAsset(currency:)` | `AccountAsset` |
+| `accountAssets()` | `[AccountAsset]` |
+| `openPositions(symbol:)` | `[Position]` |
+| `positionHistory(_:)` | `[Position]` |
+| `leverage(symbol:)` | `[PositionLeverage]` |
+| `changeLeverage(_:symbol:positionType:openType:)` | `Void` |
+| `addMargin(_:positionID:)`, `removeMargin(_:positionID:)` | `Void` |
+| `placeStopOrder(positionID:takeProfitPrice:stopLossPrice:priceType:)` | `Int64`, the TP/SL order ID |
+| `changeStopOrder(id:takeProfitPrice:stopLossPrice:priceType:)` | `Void` |
+| `cancelStopOrders(ids:)` | `Void` |
+| `cancelAllStopOrders(symbol:)` | `Void` |
+| `openStopOrders(symbol:)` | `[StopOrder]` |
+| `placePlanOrder(_:)` | `Int64`, the trigger order ID |
+| `cancelPlanOrders(ids:symbol:)` | `Void` |
+| `cancelAllPlanOrders(symbol:)` | `Void` |
+| `openPlanOrders(symbol:pageNumber:pageSize:)` | `[PlanOrder]` |
 
 Code fields such as `side`, `state` and `orderType` are enums. They are `nil` when MEXC sends a value this SDK does not know yet.
 
