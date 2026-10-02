@@ -112,19 +112,19 @@ extension Ticker {
             maxBidPrice: field("maxBidPrice").doubleValue,
             minAskPrice: field("minAskPrice").doubleValue,
             timestamp: field("timestamp").dateValue,
-            riseFallRates: RiseFallRates(node: field("riseFallRates"), zone: node["zone"], value: node["riseFallValue"]),
+            riseFallRates: RiseFallRates(node: field("riseFallRates"), ticker: node),
             riseFallRatesOfTimezone: field("riseFallRatesOfTimezone").map(\.doubleValue) ?? []
         )
     }
 }
 
 extension Ticker.RiseFallRates {
-    init(node: JSONNode, zone: JSONNode, value: JSONNode) {
+    init(node: JSONNode, ticker: JSONNode) {
         guard node.isObject else {
             self.init(
-                zone: zone.stringValue,
+                zone: ticker["zone"].stringValue,
                 rate: node[0].doubleValue,
-                value: value.doubleValue,
+                value: ticker["riseFallValue"].doubleValue,
                 rate7Days: node[1].doubleValue,
                 rate30Days: node[2].doubleValue,
                 rate90Days: node[3].doubleValue,
