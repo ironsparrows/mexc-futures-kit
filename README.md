@@ -10,7 +10,7 @@ A Swift SDK for MEXC Futures trading, with a REST client and a WebSocket client.
 - **REST client.** Submit, cancel and query orders. Set leverage and margin, and place TP/SL and trigger orders. Read positions, balances, fees, risk limits and market data.
 - **WebSocket client.** Stream market data and private account updates as typed events over `AsyncStream`.
 - **Typed REST results.** Every REST method returns a `Result` with typed models, such as `Ticker`, `Order` and `Position`, or MEXC's rejection. WebSocket pushes decode into the same typed models.
-- **Fast.** Decodes MEXC responses and WebSocket messages 10–26× faster than Foundation. See [Performance](#performance).
+- **Fast.** Decodes MEXC responses and WebSocket messages 11–26× faster than Foundation. See [Performance](#performance).
 - **Swift concurrency.** `async`/`await` throughout, a `Sendable` client, an actor-based socket and typed throws with `MexcFuturesError`.
 - **Auto-reconnect.** The socket sends keep-alive pings and reconnects after the connection drops.
 
@@ -358,13 +358,13 @@ MexcFuturesKit parses JSON with [yyjson](https://github.com/ibireme/yyjson), a J
 
 ### REST decoding
 
-Measured on one Mac with release builds and real MEXC payloads: a ticker (588 bytes), an order book with 20 levels per side (772 bytes), and every contract (1,207 contracts, 2.3 MB). The numbers are the median of 3 runs. The `Codable` structs given to `JSONDecoder` have the same fields as the SDK models.
+Measured on one Mac with release builds and real MEXC payloads: a ticker (575 bytes), an order book with 20 levels per side (794 bytes), and every contract (1,208 contracts, 2.3 MB). The numbers are the median of 3 runs. The `Codable` structs given to `JSONDecoder` have the same fields as the SDK models.
 
 | | Foundation `JSONDecoder` | **MexcFuturesKit** |
 | --- | --- | --- |
-| `Ticker` | 6.26 µs | **0.45 µs** (14× faster) |
-| `ContractDepth`, 20 levels per side | 27.5 µs | **1.07 µs** (26× faster) |
-| `[ContractDetail]`, 1,207 contracts | 14.5 ms | **1.37 ms** (11× faster) |
+| `Ticker` | 6.46 µs | **0.48 µs** (13× faster) |
+| `ContractDepth`, 20 levels per side | 28.3 µs | **1.10 µs** (26× faster) |
+| `[ContractDetail]`, 1,208 contracts | 14.7 ms | **1.38 ms** (11× faster) |
 
 ### WebSocket
 
@@ -372,15 +372,15 @@ Decoding one real MEXC depth update into `ContractDepth`, which is the most freq
 
 | | Foundation `JSONDecoder` | **MexcFuturesKit** |
 | --- | --- | --- |
-| One depth update | 2.99 µs | **0.29 µs** (10× faster) |
+| One depth update | 3.11 µs | **0.28 µs** (11× faster) |
 
 The whole client was also measured end to end. A local server replayed captured MEXC depth traffic to it on one Mac, in a release build. Latency runs from the server's send to your handler.
 
 | | `onEvent` | `events()` stream |
 | --- | --- | --- |
-| Latency at 3,440 msg/s (live MEXC rate), p50 / p99 | 0.06 / 0.17 ms | 0.09 / 0.23 ms |
-| CPU at 3,440 msg/s | 3% of one core | 6% of one core |
-| CPU per message at full load | 1.9 µs | 3.5 µs |
+| Latency at 3,440 msg/s (live MEXC rate), p50 / p99 | 0.08 / 0.23 ms | 0.10 / 0.27 ms |
+| CPU at 3,440 msg/s | 4% of one core | 7% of one core |
+| CPU per message at full load | 2.0 µs | 3.5 µs |
 | Peak memory | 14 MB | 14 MB |
 
 ### Why speed matters
@@ -388,7 +388,7 @@ The whole client was also measured end to end. A local server replayed captured 
 - **Reaction time.** Decoding happens before your code sees a price. Every microsecond spent decoding is added to the time it takes to react to the market.
 - **Bursts.** Ten liquid contracts pushed about 3,440 depth updates per second in normal trading, and volatile markets push several times more. Decoding cost decides whether a client keeps up or falls behind and queues stale prices.
 - **More markets per machine.** Less CPU per message leaves room for more symbols, more connections and the strategy itself.
-- **Apps.** Decoding the contract list with `JSONDecoder` takes 14.5 ms, nearly a whole 60 Hz frame (16.7 ms). MexcFuturesKit takes 1.4 ms. On iPhone, less CPU also means less battery and heat.
+- **Apps.** Decoding the contract list with `JSONDecoder` takes 14.7 ms, nearly a whole 60 Hz frame (16.7 ms). MexcFuturesKit takes 1.4 ms. On iPhone, less CPU also means less battery and heat.
 - **Memory.** The parsed JSON is freed right after decoding, so a running socket stays around 14 MB.
 
 ## Error handling
