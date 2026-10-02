@@ -31,17 +31,22 @@ extension MexcFuturesWebSocket {
         /// The interval between keep-alive pings, recommended between 10 and 20 seconds.
         public var pingInterval: Duration
 
+        /// How long ``MexcFuturesWebSocket/connect()`` and a login wait for the server before they fail.
+        public var timeout: Duration
+
         /// Creates the settings of a ``MexcFuturesWebSocket``.
         public init(
             url: URL = URL(string: "wss://contract.mexc.com/edge")!,
             autoReconnect: Bool = true,
             reconnectInterval: Duration = .seconds(5),
-            pingInterval: Duration = .seconds(15)
+            pingInterval: Duration = .seconds(15),
+            timeout: Duration = .seconds(10)
         ) {
             self.url = url
             self.autoReconnect = autoReconnect
             self.reconnectInterval = reconnectInterval
             self.pingInterval = pingInterval
+            self.timeout = timeout
         }
     }
 }

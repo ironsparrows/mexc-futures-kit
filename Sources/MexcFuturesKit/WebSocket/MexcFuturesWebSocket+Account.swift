@@ -70,7 +70,8 @@ extension MexcFuturesWebSocket {
     ///   - subscribe: Whether the server pushes every kind of private data after login.
     ///     Pass `false` to choose the data with ``Account/setPersonalFilter(_:)``.
     /// - Returns: The account, which selects the private data the server pushes.
-    /// - Throws: ``MexcFuturesError/authentication(message:)`` when the server rejects the login.
+    /// - Throws: ``MexcFuturesError/authentication(message:)`` when the server rejects the login, and
+    ///   ``MexcFuturesError/connectionFailed(_:)`` when it does not answer within ``Configuration/timeout``.
     @discardableResult
     public func login(authToken: String, subscribe: Bool = true) async throws(MexcFuturesError) -> Account {
         try await login(Credentials(key: .authToken(authToken), subscribe: subscribe))
@@ -86,14 +87,17 @@ extension MexcFuturesWebSocket {
     ///   - subscribe: Whether the server pushes every kind of private data after login.
     ///     Pass `false` to choose the data with ``Account/setPersonalFilter(_:)``.
     /// - Returns: The account, which selects the private data the server pushes.
-    /// - Throws: ``MexcFuturesError/authentication(message:)`` when the server rejects the login.
+    /// - Throws: ``MexcFuturesError/authentication(message:)`` when the server rejects the login, and
+    ///   ``MexcFuturesError/connectionFailed(_:)`` when it does not answer within ``Configuration/timeout``.
     @discardableResult
     public func login(apiKey: String, secretKey: String, subscribe: Bool = true) async throws(MexcFuturesError) -> Account {
         try await login(Credentials(key: .apiKey(apiKey, secretKey: secretKey), subscribe: subscribe))
     }
 
     private func login(_ credentials: Credentials) async throws(MexcFuturesError) -> Account {
+        let sessionID = session.id
         try await authenticate(credentials)
+        guard session.id == sessionID else { throw .notConnected }
         session.credentials = credentials
         return Account(socket: self)
     }
@@ -103,6 +107,25 @@ extension MexcFuturesWebSocket {
         let responses = events()
         try await send(["subscribe": credentials.subscribe, "method": "login", "param": credentials.loginParameters])
 
+        let timeout = configuration.timeout
+        do {
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask { try await Self.loginResponse(in: responses) }
+                group.addTask {
+                    try await Task.sleep(for: timeout)
+                    throw MexcFuturesError.connectionFailed(URLError(.timedOut))
+                }
+                defer { group.cancelAll() }
+                try await group.next()
+            }
+        } catch let error as MexcFuturesError {
+            throw error
+        } catch {
+            throw .cancelled
+        }
+    }
+
+    private static func loginResponse(in responses: AsyncStream<Event>) async throws(MexcFuturesError) {
         for await event in responses {
             switch event {
             case .login:
@@ -120,7 +143,9 @@ extension MexcFuturesWebSocket {
 
     func setPersonalFilter(_ filters: [PersonalFilter]) async throws(MexcFuturesError) {
         guard isLoggedIn else { throw .notLoggedIn }
+        let sessionID = session.id
         try await send(["method": "personal.filter", "param": ["filters": filters.map(\.message)]])
+        guard session.id == sessionID else { throw .notConnected }
         session.personalFilters = filters
     }
 }

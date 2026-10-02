@@ -39,6 +39,7 @@ public actor MexcFuturesWebSocket {
     let broadcaster = EventBroadcaster<Event>()
     var session = Session()
     private var state = State.disconnected
+    private var connectionAttempt = 0
     private var pingTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
 
@@ -95,8 +96,15 @@ public actor MexcFuturesWebSocket {
     /// When an earlier connection dropped, the socket first logs in again, re-applies the personal filter
     /// and re-subscribes to market data, then delivers ``Event/connected``.
     /// Does nothing when the connection is already open or opening.
+    ///
+    /// - Throws: ``MexcFuturesError/connectionFailed(_:)`` when the connection fails or the server does not
+    ///   answer within ``Configuration/timeout``, ``MexcFuturesError/cancelled`` when ``disconnect()`` runs
+    ///   before the connection opens, and ``MexcFuturesError/notConnected`` when the connection closes
+    ///   while the session is restored.
     public func connect() async throws(MexcFuturesError) {
         guard case .disconnected = state else { return }
+        connectionAttempt += 1
+        let attempt = connectionAttempt
         state = .connecting
         logger.debug("Connecting to MEXC Futures WebSocket")
 
@@ -104,24 +112,30 @@ public actor MexcFuturesWebSocket {
         let router = MessageRouter(logger: logger, broadcaster: broadcaster, frames: continuation)
         let socket: WebSocket
         do {
-            socket = try await Self.open(configuration.url, routingTo: router)
+            socket = try await Self.open(configuration.url, timeout: configuration.timeout, routingTo: router)
         } catch {
             continuation.finish()
-            state = .disconnected
+            if isConnecting(attempt) {
+                state = .disconnected
+            }
+            if error is CancellationError {
+                throw .cancelled
+            }
             logger.error("WebSocket connection failed", metadata: ["error": "\(error)"])
             broadcaster.yield(.error(.connectionFailed(error)))
             throw .connectionFailed(error)
         }
 
-        guard case .connecting = state else {
+        guard isConnecting(attempt) else {
             try? await socket.close()
-            return
+            throw .cancelled
         }
         state = .connected(socket)
         logger.debug("WebSocket connected")
         receive(frames, from: socket)
         startPinging()
         await restoreSession()
+        guard isCurrent(socket) else { throw .notConnected }
         broadcaster.yield(.connected)
     }
 
@@ -135,7 +149,9 @@ public actor MexcFuturesWebSocket {
         session = Session()
         let socket: WebSocket? = if case .connected(let socket) = state { socket } else { nil }
         state = .disconnected
-        try? await socket?.close()
+        guard let socket else { return }
+        try? await socket.close()
+        broadcaster.yield(.disconnected(code: socket.closeCode.map { Int(UInt16(webSocketErrorCode: $0)) }))
     }
 }
 
@@ -180,24 +196,46 @@ extension MexcFuturesWebSocket {
         }
     }
 
-    private static func open(_ url: URL, routingTo router: MessageRouter) async throws -> WebSocket {
-        try await withCheckedThrowingContinuation { continuation in
-            WebSocket.connect(to: url, on: MultiThreadedEventLoopGroup.singleton) { socket in
-                socket.onText { _, text in
-                    router.route(text)
-                }
-                socket.onBinary { _, buffer in
-                    router.route(String(buffer: buffer))
-                }
-                socket.onClose.whenComplete { _ in
-                    router.frames.yield(.closed(code: socket.closeCode.map { Int(UInt16(webSocketErrorCode: $0)) }))
-                    router.frames.finish()
-                }
-                continuation.resume(returning: socket)
-            }.whenFailure { error in
-                continuation.resume(throwing: error)
-            }
+    private static func open(_ url: URL, timeout: Duration, routingTo router: MessageRouter) async throws -> WebSocket {
+        let eventLoop = MultiThreadedEventLoopGroup.singleton.next()
+        let opened = eventLoop.makePromise(of: WebSocket.self)
+        let timer = eventLoop.scheduleTask(in: TimeAmount(timeout)) {
+            opened.fail(URLError(.timedOut))
         }
+        opened.futureResult.whenComplete { _ in
+            timer.cancel()
+        }
+        WebSocket.connect(to: url, on: eventLoop) { socket in
+            socket.onText { _, text in
+                router.route(text)
+            }
+            socket.onBinary { _, buffer in
+                router.route(String(buffer: buffer))
+            }
+            socket.onClose.whenComplete { _ in
+                router.frames.yield(.closed(code: socket.closeCode.map { Int(UInt16(webSocketErrorCode: $0)) }))
+                router.frames.finish()
+            }
+            opened.succeed(socket)
+            opened.futureResult.whenFailure { _ in
+                _ = socket.close(code: .goingAway)
+            }
+        }.whenFailure { error in
+            opened.fail(error)
+        }
+        return try await withTaskCancellationHandler {
+            try await opened.futureResult.get()
+        } onCancel: {
+            opened.fail(CancellationError())
+        }
+    }
+
+    private func isConnecting(_ attempt: Int) -> Bool {
+        if case .connecting = state { attempt == connectionAttempt } else { false }
+    }
+
+    private func isCurrent(_ socket: WebSocket) -> Bool {
+        if case .connected(let current) = state { current === socket } else { false }
     }
 
     private func receive(_ frames: AsyncStream<Frame>, from socket: WebSocket) {
@@ -211,6 +249,7 @@ extension MexcFuturesWebSocket {
     private func handle(_ frame: Frame, from socket: WebSocket) {
         switch frame {
         case .sessionEvent(let event):
+            guard isCurrent(socket) else { return }
             if case .loginFailed(let response) = event {
                 isLoggedIn = false
                 logger.error("WebSocket login failed", metadata: ["response": "\(response)"])
@@ -225,15 +264,13 @@ extension MexcFuturesWebSocket {
     }
 
     private func handleClose(of socket: WebSocket, code: Int?) {
-        let isCurrentSocket = if case .connected(let current) = state { current === socket } else { false }
-        if isCurrentSocket {
-            logger.warning("WebSocket closed", metadata: ["code": "\(code.map(String.init) ?? "none")"])
-            state = .disconnected
-            isLoggedIn = false
-            stopPinging()
-        }
+        guard isCurrent(socket) else { return }
+        logger.warning("WebSocket closed", metadata: ["code": "\(code.map(String.init) ?? "none")"])
+        state = .disconnected
+        isLoggedIn = false
+        stopPinging()
         broadcaster.yield(.disconnected(code: code))
-        if isCurrentSocket, configuration.autoReconnect {
+        if configuration.autoReconnect {
             scheduleReconnect()
         }
     }

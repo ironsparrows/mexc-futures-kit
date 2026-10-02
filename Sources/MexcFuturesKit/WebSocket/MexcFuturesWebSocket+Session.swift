@@ -3,6 +3,7 @@ import Logging
 
 extension MexcFuturesWebSocket {
     struct Session {
+        let id = UUID()
         var credentials: Credentials?
         var personalFilters: [PersonalFilter]?
         var subscriptions: [MarketSubscription: [String: Any]] = [:]
@@ -49,7 +50,9 @@ extension MexcFuturesWebSocket {
         if let gzip {
             message["gzip"] = gzip
         }
+        let sessionID = session.id
         try await send(message)
+        guard session.id == sessionID else { throw .notConnected }
         session.subscriptions[MarketSubscription(channel: channel, symbol: symbol, variant: variant)] = message
     }
 

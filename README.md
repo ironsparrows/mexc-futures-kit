@@ -259,6 +259,8 @@ for await event in events {
 
 A rejected login throws `MexcFuturesError.authentication`. Account methods throw `MexcFuturesError.notLoggedIn` once the session is no longer logged in.
 
+`connect()` and the logins throw `MexcFuturesError.connectionFailed` when the server does not answer within `Configuration.timeout`, 10 seconds by default. `disconnect()` makes a pending `connect()` throw `MexcFuturesError.cancelled`.
+
 Each call to `events()` returns a new stream, and every stream receives every event.
 
 ### Lowest latency: `onEvent`

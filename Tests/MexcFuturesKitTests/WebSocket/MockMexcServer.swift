@@ -10,6 +10,8 @@ import WebSocketKit
 final class MockMexcServer: Sendable {
     struct Behavior: Sendable {
         var acceptsLogin = true
+        var answersLogin = true
+        var upgradeDelay = TimeAmount.zero
     }
 
     let messages: AsyncStream<JSON>
@@ -32,7 +34,7 @@ final class MockMexcServer: Sendable {
                 let upgrader = NIOWebSocketServerUpgrader(
                     shouldUpgrade: { channel, head in
                         server.state.withLock { $0.handshakes.append(head.headers) }
-                        return channel.eventLoop.makeSucceededFuture([:])
+                        return channel.eventLoop.scheduleTask(in: behavior.upgradeDelay) { HTTPHeaders() }.futureResult
                     },
                     upgradePipelineHandler: { channel, _ in
                         WebSocket.server(on: channel) { socket in
@@ -125,7 +127,7 @@ final class MockMexcServer: Sendable {
         return switch method {
         case "ping":
             ["channel": "pong", "data": 1_700_000_000_000]
-        case "login":
+        case "login" where behavior.answersLogin:
             ["channel": "rs.login", "data": behavior.acceptsLogin ? "success" : "failed"]
         case "personal.filter":
             ["channel": "rs.personal.filter", "data": "success"]
