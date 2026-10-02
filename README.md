@@ -440,3 +440,7 @@ The default test run stays offline. To also run the live checks against public M
 ```bash
 MEXC_LIVE_TESTS=1 swift test
 ```
+
+## License
+
+MexcFuturesKit is available under the MIT license. See [LICENSE](LICENSE).
