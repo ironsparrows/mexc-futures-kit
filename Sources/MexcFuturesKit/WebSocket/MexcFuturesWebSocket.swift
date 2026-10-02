@@ -18,7 +18,7 @@ import WebSocketKit
 ///
 /// for await event in events {
 ///     if case .ticker(let ticker) = event {
-///         print(ticker["lastPrice"].doubleValue)
+///         print(ticker.lastPrice)
 ///     }
 /// }
 /// ```

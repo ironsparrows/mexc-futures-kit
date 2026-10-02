@@ -7,7 +7,7 @@ A Swift SDK for MEXC Futures trading, with a REST client and a WebSocket client.
 
 ## Features
 
-- **REST client.** Submit, cancel and query orders. Read positions, balances, fees, risk limits and market data.
+- **REST client.** Submit, cancel and query orders. Set leverage and margin, and place TP/SL and trigger orders. Read positions, balances, fees, risk limits and market data.
 - **WebSocket client.** Stream market data and private account updates as typed events over `AsyncStream`.
 - **Typed REST results.** Every REST method returns a `Result` with typed models, such as `Ticker`, `Order` and `Position`, or MEXC's rejection. WebSocket pushes decode into the same typed models.
 - **Fast.** Decodes MEXC responses and WebSocket messages 10–26× faster than Foundation. See [Performance](#performance).
@@ -25,7 +25,7 @@ Add the package to `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/<owner>/mexc-futures-kit.git", branch: "main"),
+    .package(url: "https://github.com/ironsparrows/mexc-futures-kit.git", branch: "main"),
 ],
 targets: [
     .target(
@@ -47,7 +47,7 @@ Market data needs no credentials, on REST or on the WebSocket. Account data and 
 
 1. Sign in to MEXC Futures in your browser.
 2. Open the developer tools and go to the Network tab.
-3. Select any request to `futures.mexc.com`.
+3. Select any request to `www.mexc.com/api/platform/futures`.
 4. Copy the value of the `authorization` header. It starts with `WEB`.
 
 ### WebSocket: WEB token or API keys
@@ -91,10 +91,11 @@ case .failure(let error):
 }
 ```
 
-Every method returns a `Result`:
+Every method except `testConnection()` returns a `Result`:
 
 - `.success` carries the typed data.
 - `.failure(.rejected(code:message:))` carries MEXC's error code and message when it answers `"success": false`.
+- `.failure(.malformedMessage(_:))` carries the response when MEXC answers `"success": true` but the data is missing or has an unexpected shape.
 - Network, HTTP and signature failures are thrown, like every other `MexcFuturesError`.
 
 Call `get()` to turn a rejection into a thrown error, or switch on the result to handle it in place:
@@ -119,7 +120,7 @@ case .failure(let error):
 | `ticker(symbol:)` | `Ticker` |
 | `contractDetail(symbol:)` | `[ContractDetail]` |
 | `contractDepth(symbol:limit:)` | `ContractDepth` |
-| `testConnection()` | `Bool` |
+| `testConnection()` | `Bool`, returned directly: `true` when MEXC answers |
 
 ### Account data and trading: `MexcFuturesClient.Account`
 
@@ -132,8 +133,8 @@ case .failure(let error):
 | `openOrders(symbol:pageNumber:pageSize:)` | `[Order]` |
 | `orderHistory(_:)` | `[Order]` |
 | `orderDeals(_:)` | `[OrderDeal]` |
-| `order(id:)` | `Order` |
-| `order(symbol:externalOrderID:)` | `Order` |
+| `order(id:)` | `Order?`, `nil` when MEXC has no such order |
+| `order(symbol:externalOrderID:)` | `Order?`, `nil` when MEXC has no such order |
 | `riskLimits()` | `[RiskLimit]` |
 | `feeRates()` | `[FeeRate]` |
 | `accountAsset(currency:)` | `AccountAsset` |
@@ -341,7 +342,7 @@ let orderID = message["data"]["orderId"].int64Value
 let levels = message["data"]["bids"].arrayValue
 ```
 
-Optional accessors (`string`, `int64`, `double`, `bool`, `array`, `dictionary`) return `nil` for a missing value or a value of another type. Non-optional accessors (`stringValue`, `int64Value`, …) return an empty or zero value. Integers keep full 64-bit precision, so order IDs such as `817027833053397504` stay exact. `rawData()` returns the value as compact JSON, ready for `JSONDecoder` if you prefer your own `Codable` models.
+Optional accessors (`string`, `int64`, `double`, `bool`, `array`, `dictionary`) return `nil` when the value is missing or cannot be converted. Numeric strings convert to numbers, and numbers convert to `bool`, where any non-zero value is `true`. Non-optional accessors (`stringValue`, `int64Value`, …) return an empty or zero value instead, and `stringValue` also returns the digits of a number. Integers keep full 64-bit precision, so order IDs such as `817027833053397504` stay exact. `rawData()` returns the value as compact JSON, ready for `JSONDecoder` if you prefer your own `Codable` models.
 
 ## Performance
 
@@ -361,7 +362,7 @@ Measured on one Mac with release builds and real MEXC payloads: a ticker (588 by
 | --- | --- | --- |
 | `Ticker` | 6.26 µs | **0.45 µs** (14× faster) |
 | `ContractDepth`, 20 levels per side | 27.5 µs | **1.07 µs** (26× faster) |
-| `[ContractDetail]`, 1,207 contracts | 14.5 ms | **1.37 ms** (10× faster) |
+| `[ContractDetail]`, 1,207 contracts | 14.5 ms | **1.37 ms** (11× faster) |
 
 ### WebSocket
 
@@ -390,7 +391,7 @@ The whole client was also measured end to end. A local server replayed captured 
 
 ## Error handling
 
-All methods throw `MexcFuturesError`:
+Methods throw only `MexcFuturesError`, so `catch` can match its cases directly:
 
 ```swift
 do {
@@ -414,10 +415,15 @@ do {
 The clients log through [swift-log](https://github.com/apple/swift-log). Pass your own `Logger` to change the level or the destination:
 
 ```swift
+import Logging
+import MexcFuturesKit
+
 var logger = Logger(label: "trading")
 logger.logLevel = .debug
 let client = MexcFuturesClient(logger: logger)
 ```
+
+To import `Logging`, add `.product(name: "Logging", package: "swift-log")` to your target's dependencies.
 
 The logs never include request signatures or WebSocket login parameters.
 

@@ -48,7 +48,7 @@ public struct MexcFuturesClient: Sendable {
     ///
     /// - Parameter authToken: The WEB authorization token of a signed-in browser session.
     ///   Copy the `authorization` header, which starts with `WEB`, from any request to
-    ///   `futures.mexc.com` in the browser's developer tools.
+    ///   `www.mexc.com/api/platform/futures` in the browser's developer tools.
     /// - Returns: A client that authenticates every request with `authToken`.
     public func account(authToken: String) -> Account {
         Account(client: self, authToken: authToken)
