@@ -300,7 +300,7 @@ Compression is off by default. MEXC pushes small, frequent messages, so decompre
 | Kind | Control | Default |
 | --- | --- | --- |
 | Transport (permessage-deflate, RFC 7692) | Not available. WebSocketKit and SwiftNIO do not implement it, so the handshake never offers it. | Off |
-| Payload gzip | `subscribeToAllTickers(gzip:)` | Off |
+| Payload gzip | Not available. `subscribeToAllTickers()` asks MEXC for plain JSON. | Off |
 | Order book merging | `subscribeToDepth(symbol:compress:)`. MEXC's `compress` field merges changes and pushes them about every 200 ms. It does not compress bytes. | Every change |
 
 When you receive every depth change, keep your own order book. Start from a `contractDepth(symbol:limit:)` snapshot, apply the changes in `version` order, and reload the snapshot when a version is missing.

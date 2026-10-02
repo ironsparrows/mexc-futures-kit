@@ -11,8 +11,8 @@ extension MexcFuturesWebSocket {
     /// - Transport compression, the permessage-deflate extension of RFC 7692, is never used.
     ///   WebSocketKit and SwiftNIO do not implement the extension, so the handshake never offers it
     ///   and frames always arrive uncompressed.
-    /// - Payload gzip is requested only by ``MexcFuturesWebSocket/subscribeToAllTickers(gzip:)``,
-    ///   which asks for plain JSON by default.
+    /// - Payload gzip is never requested. ``MexcFuturesWebSocket/subscribeToAllTickers()`` asks MEXC
+    ///   for plain JSON.
     /// - Order book merging is chosen per subscription with
     ///   ``MexcFuturesWebSocket/subscribeToDepth(symbol:compress:)``, which asks for every change by default.
     public struct Configuration: Sendable {

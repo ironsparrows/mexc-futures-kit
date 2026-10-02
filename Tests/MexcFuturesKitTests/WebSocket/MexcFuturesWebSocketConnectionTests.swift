@@ -116,6 +116,15 @@ struct MexcFuturesWebSocketConnectionTests {
             #expect(await socket.isLoggedIn == false)
         }
     }
+
+    @Test func allTickersAskForJSONText() async throws {
+        try await withConnectedSocket { server, socket, _ in
+            try await socket.subscribeToAllTickers()
+
+            let subscription = try #require(await server.nextMessage(method: "sub.tickers"))
+            #expect(subscription["gzip"].bool == false)
+        }
+    }
 }
 
 func withConnectedSocket(

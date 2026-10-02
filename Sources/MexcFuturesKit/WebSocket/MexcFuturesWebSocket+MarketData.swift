@@ -1,9 +1,9 @@
 extension MexcFuturesWebSocket {
     /// Subscribes to the tickers of every contract.
     ///
-    /// - Parameter gzip: Whether MEXC gzips the pushed data into binary frames, instead of sending JSON text.
-    public func subscribeToAllTickers(gzip: Bool = false) async throws(MexcFuturesError) {
-        try await subscribe(to: "tickers", gzip: gzip)
+    /// The subscription asks MEXC for JSON text, never gzipped binary frames.
+    public func subscribeToAllTickers() async throws(MexcFuturesError) {
+        try await subscribe(to: "tickers", gzip: false)
     }
 
     /// Unsubscribes from the tickers of every contract.
